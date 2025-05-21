@@ -1,0 +1,291 @@
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #007bff; /* Blue background */
+    margin: 0;
+    overflow: hidden; /* Prevent scrolling if content slightly exceeds viewport */
+}
+
+.page {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between; /* Push header and footer to ends */
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.hidden {
+    display: none;
+}
+
+.header {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end; /* Align content to the right */
+    padding: 0 20px;
+    box-sizing: border-box;
+    min-height: 50px; /* Reserve space for header */
+}
+
+.header-text {
+    font-size: 18px;
+    color: #004085; /* Darker blue */
+    font-weight: bold;
+    padding: 8px 15px;
+    background-color: #fff; /* White background as in mockup */
+    border-radius: 20px; /* Rounded corners */
+}
+
+/* Removed the purple-header style */
+/* .purple-header {
+    background-color: #800080;
+    min-height: 80px;
+    width: 100%;
+    margin: -20px -20px 0 -20px;
+} */
+
+
+.login-container {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    width: 90%; /* Responsive width */
+    max-width: 400px; /* Max width */
+    margin: auto; /* Center vertically and horizontally */
+}
+
+.login-container h2 {
+    color: #333;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+.input-group {
+    text-align: left;
+    margin-bottom: 15px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #555;
+    font-weight: bold;
+}
+
+.input-group input[type="text"],
+.input-group input[type="password"],
+.input-group input[type="email"] { /* Added email input type */
+    width: calc(100% - 22px); /* Full width minus padding and border */
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.button {
+    padding: 12px 20px;
+    margin: 10px 5px; /* Increased margin */
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    outline: none;
+    transition: background-color 0.3s ease, opacity 0.3s ease;
+    min-width: 150px; /* Give buttons a minimum width */
+    text-align: center;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.link-button { /* Style for buttons that look like links */
+    background: none;
+    border: none;
+    color: #007bff; /* Blue link color */
+    cursor: pointer;
+    padding: 0;
+    font-size: 14px; /* Smaller font */
+    text-transform: none; /* No uppercase */
+    margin: 0;
+    display: inline-block;
+    text-decoration: underline;
+}
+.link-button:hover {
+    color: #0056b3;
+}
+
+
+.arrow-button {
+    background: none;
+    border: none;
+    font-size: 50px; /* Large arrow */
+    color: #007bff; /* Blue color */
+    cursor: pointer;
+    margin-top: 20px;
+    transition: color 0.3s ease;
+}
+.arrow-button:hover:not(:disabled) {
+    color: #0056b3; /* Darker blue on hover */
+}
+
+.message {
+    margin-top: 10px;
+    font-size: 14px;
+}
+.error-message {
+    color: red;
+}
+.success-message {
+    color: green;
+}
+
+
+.control-container {
+     background-color: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    width: 90%; /* Responsive width */
+    max-width: 450px; /* Increased max width for control page */
+    margin: 20px auto; /* Space from header/footer */
+    flex-grow: 1; /* Allow container to take up available space */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start; /* Align items to the top */
+    gap: 20px; /* Space between flex items */
+}
+
+.temperature-display-box {
+    background-color: #004085; /* Dark blue */
+    color: white;
+    font-size: 24px;
+    padding: 15px;
+    border-radius: 4px;
+    width: 100%; /* Take full width of container */
+    box-sizing: border-box;
+}
+
+.control-row {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    /* Removed margin-bottom as gap handles spacing */
+}
+
+/* Styling for the single control icon buttons (Fan/Heater) */
+.control-icon-button {
+     padding: 15px;
+     margin: 0 5px;
+     border: none;
+     border-radius: 8px; /* Slightly more rounded */
+     cursor: pointer;
+     font-size: 14px;
+     width: 120px; /* Fixed size */
+     height: 80px; /* Fixed size */
+     display: flex; /* Center content */
+     flex-direction: column; /* Stack text and icon */
+     align-items: center;
+     justify-content: center;
+     font-weight: bold;
+     transition: background-color 0.3s ease, opacity 0.3s ease;
+     text-align: center;
+     line-height: 1.2; /* Adjust line height */
+     gap: 5px; /* Space between icon placeholder and text */
+}
+
+.control-icon-button .icon-placeholder {
+     /* Basic placeholder style - replace with actual icon logic */
+     width: 40px;
+     height: 40px;
+     background-color: rgba(255, 255, 255, 0.5); /* Semi-transparent white */
+     border-radius: 50%; /* Circle */
+     /* You would add background-image or other icon methods here */
+}
+
+
+/* Specific button colors */
+.button.green {
+    background-color: #28a745; /* Green */
+    color: white;
+}
+.button.green:hover:not(:disabled) {
+     background-color: #218838;
+}
+.button.orange {
+    background-color: #fd7e14; /* Orange */
+    color: white;
+}
+.button.orange:hover:not(:disabled) {
+     background-color: #e86a0c;
+}
+.button.yellow {
+    background-color: #ffc107; /* Amber */
+    color: #212529;
+}
+.button.yellow:hover:not(:disabled) {
+     background-color: #e0a800;
+}
+.button.blue {
+     background-color: #007bff; /* Blue */
+     color: white;
+}
+ .button.blue:hover:not(:disabled) {
+      background-color: #0056b3;
+ }
+
+/* System and Mode button specific styles */
+.system-button, .mode-button {
+    min-width: 200px; /* Wider buttons */
+}
+
+
+/* Disabled state */
+.button.disabled, .control-icon-button.disabled, .arrow-button:disabled {
+    background-color: #cccccc !important; /* Use !important to override other colors */
+    color: #666666 !important;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+.button.disabled:hover, .control-icon-button.disabled:hover, .arrow-button:disabled:hover {
+    background-color: #cccccc;
+}
+
+
+.footer {
+    width: 50%;
+    text-align: center;
+    color: #004085; /* Darker blue for text */
+    font-size: 12px;
+    margin-top: 20px; /* Space from container */
+    min-height: 40px; /* Reserve space for footer */
+     display: flex; /* Use flexbox for alignment */
+     justify-content: center; /* Center text initially */
+     align-items: center;
+     position: relative; /* Needed for absolute positioning of settings icon */
+     background-color: #fff; /* ADDED: White background for footer */
+}
+.footer p {
+    margin: 2px 10px; /* Add horizontal margin to separate text */
+}
+
+/* Settings icon styles removed */
+
+
+/* Style for the back button on create user page */
+#back-to-login {
+    margin-top: 20px;
+    background-color: #6c757d; /* Grey color */
+    color: white;
+}
+#back-to-login:hover {
+     background-color: #5a6268;
+}

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Control Panel</title>
+    <!-- Link to external CSS file -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script> <!-- ADDED AUTH SDK -->
+</head>
+<body>
+    <div id="login-page" class="page">
+        <div class="header">
+            <span class="header-text">CONNECT</span> <!-- "CONNECT" is text, not a button -->
+        </div>
+        <div class="login-container">
+            <h2>ĐĂNG NHẬP</h2>
+            <div class="input-group">
+                <label for="username">EMAIL :</label> <!-- Changed label to EMAIL -->
+                <input type="email" id="username" required> <!-- Changed type to email -->
+            </div>
+            <div class="input-group">
+                <label for="password">MẬT KHẨU :</label>
+                <input type="password" id="password" required>
+            </div>
+            <button id="login-arrow-button" class="arrow-button">→</button>
+            <p id="login-error" class="message error-message"></p>
+             <!-- Link to create user - Optional, for initial setup -->
+             <p class="message">Chưa có tài khoản? <button id="create-user-button" class="link-button">Đăng ký</button></p>
+        </div>
+        <div class="footer">
+             <p>LÊ TẤN HOÀNG LONG 20161224</p>
+             <p>PHẠM NGUYỄN THẾ ANH 20161157</p>
+             <!-- Settings icon removed from here -->
+        </div>
+    </div>
+
+    <div id="control-page" class="page hidden">
+        <div class="header purple-header">
+            <!-- Content for purple header (empty in mockup) -->
+        </div>
+         <div class="control-container">
+            <div class="temperature-display-box">
+                TEMP : <span id="current-temperature">__</span> °C
+            </div>
+
+             <!-- Control Buttons Row -->
+             <div class="control-row">
+                 <!-- Fan Button -->
+                <button id="fan-control-button" class="button control-icon-button yellow disabled" disabled>
+                     <!-- Placeholder for Fan Icon -->
+                    <span class="icon-placeholder"></span>
+                    <span>Fan OFF</span>
+                </button>
+                <!-- Heater Button -->
+                <button id="heater-control-button" class="button control-icon-button yellow disabled" disabled>
+                    <!-- Placeholder for Heater Icon -->
+                     <span class="icon-placeholder"></span>
+                    <span>Heater 1</span>
+                </button>
+             </div>
+             <!-- System ON/OFF Button -->
+            <button id="system-power-button" class="button system-button yellow">OFF</button>
+            <!-- Auto/Manual Button -->
+            <button id="operating-mode-button" class="button mode-button yellow">AUTO</button>
+
+         </div>
+         <div class="footer">
+             <p>LÊ TẤN HOÀNG LONG 20161224</p>
+             <p>PHẠM NGUYỄN THẾ ANH 20161157</p>
+             <!-- Settings icon removed from here -->
+        </div>
+    </div>
+
+     <!-- Page for User Creation (Optional) -->
+     <div id="create-user-page" class="page hidden">
+        <div class="header">
+            <span class="header-text">ĐĂNG KÝ</span>
+        </div>
+        <div class="login-container">
+            <h2>Đăng ký tài khoản mới</h2>
+             <p class="message">Tạo tài khoản admin ban đầu hoặc tài khoản mới.</p>
+            <div class="input-group">
+                <label for="create-email">Email:</label>
+                <input type="email" id="create-email" required>
+            </div>
+            <div class="input-group">
+                <label for="create-password">Mật khẩu:</label>
+                <input type="password" id="create-password" required>
+            </div>
+            <button id="create-user-arrow-button" class="arrow-button">→</button>
+            <p id="create-user-message" class="message"></p>
+            <button id="back-to-login" class="button">Trở về Đăng nhập</button>
+        </div>
+         <div class="footer">
+             <p>LÊ TẤN HOÀNG LONG 20161224</p>
+             <p>PHẠM NGUYỄN THẾ ANH 20161157</p>
+        </div>
+     </div>
+    <!-- Change credentials page removed -->
+
+
+    <!-- Link to external JavaScript file -->
+    <script src="app.js"></script>
+</body>
+</html>

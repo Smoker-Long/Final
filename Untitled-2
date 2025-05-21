@@ -1,0 +1,7 @@
+body { font:14px Arial; background:#f0f0f0; margin:0; }
+.container { max-width:400px; margin:40px auto; background:#fff; padding:20px; border-radius:6px; box-shadow:0 2px 8px #ccc; }
+.row { margin-bottom:15px; }
+button { padding:10px 20px; margin:5px; background:#4CAF50; color:#fff; border:none; border-radius:4px; cursor:pointer; transition:background 0.2s; }
+button:hover { background:#388E3C; }
+.status { font-weight:bold; font-size:18px; }
+#message { color:#d32f2f; font-size:16px; }
