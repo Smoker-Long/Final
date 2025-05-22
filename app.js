@@ -168,7 +168,7 @@ function showControlPage() {
      //    controlListenersAttached = true;
      // } else {
      //     console.log("Control panel listeners already attached.");
-     // }
+     // }\
      controlListenersAttached = true; // Vẫn đặt cờ để lần sau biết listeners đã được gắn
 
 
