@@ -160,14 +160,16 @@ function showControlPage() {
      createUserMessage.textContent = ''; // Clear create user message
      createUserMessage.className = 'message'; // Reset message class
 
+     console.log("Calling setupControlPanelListeners from showControlPage."); // <-- Thêm log này
      // Ensure elements are found and listeners are attached when showing control page
-     if (!controlListenersAttached) {
-         console.log("Setting up control panel elements and listeners for the first time.");
+     // if (!controlListenersAttached) { // <-- Tạm thời bỏ qua kiểm tra cờ
+     //    console.log("Setting up control panel elements and listeners for the first time.");
          setupControlPanelListeners(); // Call the setup function
-         controlListenersAttached = true; // Mark as attached
-     } else {
-         console.log("Control panel listeners already attached.");
-     }
+     //    controlListenersAttached = true;
+     // } else {
+     //     console.log("Control panel listeners already attached.");
+     // }
+     controlListenersAttached = true; // Vẫn đặt cờ để lần sau biết listeners đã được gắn
 
 
      // Ensure Firebase listener is active when on control page
