@@ -58,6 +58,11 @@ const ESP32_CHARACTERISTIC_UUID = '00005678-0000-1000-8000-00805f9b34fb';
 // Hàm kết nối Bluetooth
 async function connectToESP32() {
     try {
+        if (!navigator.bluetooth) {
+            bleStatus.textContent = 'Trình duyệt không hỗ trợ Web Bluetooth';
+            return;
+        }
+
         bleStatus.textContent = 'Đang tìm thiết bị ESP32...';
         
         // Tìm thiết bị BLE
@@ -146,7 +151,7 @@ auth.onAuthStateChanged(user => {
 });
 
 // Xử lý sự kiện nhấn nút Đăng nhập
-loginBtn.addEventListener('click', () => {
+loginBtn.addEventListener('click', async () => {
     const email = loginEmail.value;
     const password = loginPassword.value;
 
@@ -155,16 +160,21 @@ loginBtn.addEventListener('click', () => {
         return;
     }
 
-    auth.signInWithEmailAndPassword(email, password)
-        .then((userCredential) => {
-            loginContainer.style.display = 'none';
-            controlPanel.style.display = 'block';
-            wifiConfig.style.display = 'block';
-            initializeBLE();
-        })
-        .catch((error) => {
-            loginError.textContent = error.message;
-        });
+    try {
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        loginContainer.style.display = 'none';
+        controlPanel.style.display = 'block';
+        wifiConfig.style.display = 'block';
+        
+        // Chỉ khởi tạo BLE sau khi đăng nhập thành công
+        if (navigator.bluetooth) {
+            bleStatus.textContent = 'Nhấn nút "Tìm thiết bị ESP32" để kết nối';
+        } else {
+            bleStatus.textContent = 'Trình duyệt không hỗ trợ Web Bluetooth';
+        }
+    } catch (error) {
+        loginError.textContent = error.message;
+    }
 });
 
 // Xử lý sự kiện nhấn nút Đăng xuất
@@ -310,8 +320,45 @@ function updateButtonStates() {
 }
 
 // --- Event Listeners ---
-scanButton.addEventListener('click', connectToESP32);
-connectWifiBtn.addEventListener('click', sendWiFiCredentials);
+scanButton.addEventListener('click', async () => {
+    try {
+        await connectToESP32();
+    } catch (error) {
+        bleStatus.textContent = 'Lỗi: ' + error.message;
+    }
+});
+
+connectWifiBtn.addEventListener('click', async () => {
+    if (!bluetoothCharacteristic) {
+        wifiError.textContent = 'Chưa kết nối với ESP32';
+        return;
+    }
+
+    const ssid = wifiSSID.value;
+    const password = wifiPassword.value;
+
+    if (!ssid || !password) {
+        wifiError.textContent = 'Vui lòng nhập đầy đủ thông tin WiFi';
+        return;
+    }
+
+    try {
+        const wifiData = `${ssid}:${password}`;
+        const encoder = new TextEncoder();
+        await bluetoothCharacteristic.writeValue(encoder.encode(wifiData));
+        
+        wifiError.textContent = '';
+        bleStatus.textContent = 'Đã gửi thông tin WiFi, đang chờ ESP32 kết nối...';
+        
+        // Ẩn phần cấu hình WiFi sau khi gửi thành công
+        setTimeout(() => {
+            wifiConfig.style.display = 'none';
+        }, 3000);
+    } catch (error) {
+        wifiError.textContent = 'Lỗi gửi thông tin WiFi: ' + error.message;
+        console.error('Send WiFi error:', error);
+    }
+});
 
 // Nút Fan
 toggleFanBtn.addEventListener('click', () => {
@@ -374,27 +421,3 @@ function onDisconnected() {
     bleStatus.textContent = 'Mất kết nối với ESP32';
     connectWifiBtn.disabled = true;
 }
-
-// WiFi Configuration
-connectWifiBtn.addEventListener('click', async () => {
-    if (!bluetoothCharacteristic) {
-        wifiError.textContent = 'Chưa kết nối với ESP32';
-        return;
-    }
-
-    const ssid = wifiSSID.value;
-    const password = wifiPassword.value;
-
-    if (!ssid || !password) {
-        wifiError.textContent = 'Vui lòng nhập đầy đủ thông tin WiFi';
-        return;
-    }
-
-    try {
-        const wifiConfig = `${ssid}:${password}`;
-        await bluetoothCharacteristic.writeValue(new TextEncoder().encode(wifiConfig));
-        wifiError.textContent = 'Đang kết nối WiFi...';
-    } catch (error) {
-        wifiError.textContent = 'Lỗi gửi cấu hình WiFi: ' + error;
-    }
-});
