@@ -19,13 +19,16 @@
 
         <!-- Thêm phần cấu hình WiFi -->
         <div id="wifiConfig" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ccc;">
-            <h3>Cấu hình WiFi cho ESP32</h3>
-            <div id="wifiStatus" class="status-message">Đang tìm thiết bị ESP32...</div>
-            <button id="scanButton">Tìm thiết bị ESP32</button>
-            <input type="text" id="wifiSSID" placeholder="Tên mạng WiFi">
-            <input type="password" id="wifiPassword" placeholder="Mật khẩu WiFi">
-            <button id="connectWifiBtn" disabled>Kết nối WiFi</button>
-            <p id="wifiError" class="error-message"></p>
+            <h3>Cấu hình WiFi cho ESP32 qua Bluetooth</h3>
+            <div id="bleStatus" class="status-message"></div>
+            <button id="scanBLEBtn">Quét thiết bị BLE</button>
+            
+            <div id="wifiInputs" style="display: none;">
+                <input type="text" id="wifiSSID" placeholder="Tên mạng WiFi">
+                <input type="password" id="wifiPassword" placeholder="Mật khẩu WiFi">
+                <button id="sendWifiBtn">Gửi cấu hình WiFi</button>
+                <div id="wifiStatus" class="status-message"></div>
+            </div>
         </div>
     </div>
 
