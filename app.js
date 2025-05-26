@@ -18,6 +18,9 @@ const database = firebase.database();
 const dbRef = database.ref('system_data');   // Đường dẫn để đọc trạng thái từ ESP32
 const cmdRef = database.ref('system_data'); // Đường dẫn để gửi lệnh đến ESP32
 
+// Thêm biến cho Firebase WiFi config
+const wifiConfigRef = database.ref('wifi_config');
+
 // --- Lấy các phần tử DOM ---
 const loginContainer = document.getElementById('loginContainer');
 const controlPanel = document.getElementById('controlPanel');
@@ -55,11 +58,20 @@ let bluetoothCharacteristic = null;
 const ESP32_SERVICE_UUID = '00001234-0000-1000-8000-00805f9b34fb';
 const ESP32_CHARACTERISTIC_UUID = '00005678-0000-1000-8000-00805f9b34fb';
 
+// Hàm kiểm tra hỗ trợ Bluetooth
+function checkBluetoothSupport() {
+    if (!navigator.bluetooth) {
+        bleStatus.textContent = 'Trình duyệt không hỗ trợ Web Bluetooth. Vui lòng sử dụng Chrome hoặc Edge.';
+        scanButton.disabled = true;
+        return false;
+    }
+    return true;
+}
+
 // Hàm kết nối Bluetooth
 async function connectToESP32() {
     try {
-        if (!navigator.bluetooth) {
-            bleStatus.textContent = 'Trình duyệt không hỗ trợ Web Bluetooth';
+        if (!checkBluetoothSupport()) {
             return;
         }
 
@@ -67,7 +79,7 @@ async function connectToESP32() {
         
         // Tìm thiết bị BLE
         bluetoothDevice = await navigator.bluetooth.requestDevice({
-            filters: [{ name: 'ESP_WIFI_CONFIG' }],
+            acceptAllDevices: true,  // Cho phép tìm tất cả thiết bị
             optionalServices: [ESP32_SERVICE_UUID]
         });
 
@@ -93,18 +105,21 @@ async function connectToESP32() {
             bluetoothCharacteristic = null;
         });
     } catch (error) {
-        bleStatus.textContent = 'Lỗi kết nối: ' + error.message;
+        if (error.name === 'NotFoundError') {
+            bleStatus.textContent = 'Không tìm thấy thiết bị ESP32. Vui lòng đảm bảo thiết bị đang bật và trong phạm vi.';
+        } else if (error.name === 'SecurityError') {
+            bleStatus.textContent = 'Lỗi bảo mật. Vui lòng cho phép trình duyệt sử dụng Bluetooth trong cài đặt.';
+        } else if (error.name === 'NetworkError') {
+            bleStatus.textContent = 'Lỗi kết nối. Vui lòng thử lại.';
+        } else {
+            bleStatus.textContent = 'Lỗi kết nối: ' + error.message;
+        }
         console.error('Bluetooth error:', error);
     }
 }
 
-// Hàm gửi thông tin WiFi qua Bluetooth
+// Hàm gửi thông tin WiFi qua Firebase
 async function sendWiFiCredentials() {
-    if (!bluetoothCharacteristic) {
-        wifiError.textContent = 'Chưa kết nối với ESP32';
-        return;
-    }
-
     const ssid = wifiSSID.value;
     const password = wifiPassword.value;
 
@@ -114,9 +129,12 @@ async function sendWiFiCredentials() {
     }
 
     try {
-        const wifiData = `${ssid}:${password}`;
-        const encoder = new TextEncoder();
-        await bluetoothCharacteristic.writeValue(encoder.encode(wifiData));
+        // Gửi thông tin WiFi qua Firebase
+        await wifiConfigRef.set({
+            ssid: ssid,
+            password: password,
+            timestamp: Date.now()
+        });
         
         wifiError.textContent = '';
         bleStatus.textContent = 'Đã gửi thông tin WiFi, đang chờ ESP32 kết nối...';
@@ -166,12 +184,9 @@ loginBtn.addEventListener('click', async () => {
         controlPanel.style.display = 'block';
         wifiConfig.style.display = 'block';
         
-        // Chỉ khởi tạo BLE sau khi đăng nhập thành công
-        if (navigator.bluetooth) {
-            bleStatus.textContent = 'Nhấn nút "Tìm thiết bị ESP32" để kết nối';
-        } else {
-            bleStatus.textContent = 'Trình duyệt không hỗ trợ Web Bluetooth';
-        }
+        // Cập nhật giao diện cho WiFi config
+        bleStatus.textContent = 'Nhập thông tin WiFi để cấu hình ESP32';
+        scanButton.style.display = 'none'; // Ẩn nút scan vì không cần thiết nữa
     } catch (error) {
         loginError.textContent = error.message;
     }
@@ -328,37 +343,8 @@ scanButton.addEventListener('click', async () => {
     }
 });
 
-connectWifiBtn.addEventListener('click', async () => {
-    if (!bluetoothCharacteristic) {
-        wifiError.textContent = 'Chưa kết nối với ESP32';
-        return;
-    }
-
-    const ssid = wifiSSID.value;
-    const password = wifiPassword.value;
-
-    if (!ssid || !password) {
-        wifiError.textContent = 'Vui lòng nhập đầy đủ thông tin WiFi';
-        return;
-    }
-
-    try {
-        const wifiData = `${ssid}:${password}`;
-        const encoder = new TextEncoder();
-        await bluetoothCharacteristic.writeValue(encoder.encode(wifiData));
-        
-        wifiError.textContent = '';
-        bleStatus.textContent = 'Đã gửi thông tin WiFi, đang chờ ESP32 kết nối...';
-        
-        // Ẩn phần cấu hình WiFi sau khi gửi thành công
-        setTimeout(() => {
-            wifiConfig.style.display = 'none';
-        }, 3000);
-    } catch (error) {
-        wifiError.textContent = 'Lỗi gửi thông tin WiFi: ' + error.message;
-        console.error('Send WiFi error:', error);
-    }
-});
+// Xử lý sự kiện nhấn nút Kết nối WiFi
+connectWifiBtn.addEventListener('click', sendWiFiCredentials);
 
 // Nút Fan
 toggleFanBtn.addEventListener('click', () => {
