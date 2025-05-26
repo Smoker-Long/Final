@@ -79,8 +79,7 @@ async function connectToESP32() {
         
         // Tìm thiết bị BLE
         bluetoothDevice = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,  // Cho phép tìm tất cả thiết bị
-            optionalServices: [ESP32_SERVICE_UUID]
+            filters: [{ services: [ESP32_SERVICE_UUID] }]
         });
 
         bleStatus.textContent = 'Đã tìm thấy ESP32, đang kết nối...';
@@ -118,7 +117,7 @@ async function connectToESP32() {
     }
 }
 
-// Hàm gửi thông tin WiFi qua Firebase
+// Hàm gửi thông tin WiFi qua BLE
 async function sendWiFiCredentials() {
     const ssid = wifiSSID.value;
     const password = wifiPassword.value;
@@ -129,12 +128,14 @@ async function sendWiFiCredentials() {
     }
 
     try {
-        // Gửi thông tin WiFi qua Firebase
-        await wifiConfigRef.set({
-            ssid: ssid,
-            password: password,
-            timestamp: Date.now()
-        });
+        if (!bluetoothCharacteristic) {
+            throw new Error('Chưa kết nối với ESP32');
+        }
+
+        // Gửi thông tin WiFi qua BLE
+        const wifiData = `${ssid}:${password}`;
+        const encoder = new TextEncoder();
+        await bluetoothCharacteristic.writeValue(encoder.encode(wifiData));
         
         wifiError.textContent = '';
         bleStatus.textContent = 'Đã gửi thông tin WiFi, đang chờ ESP32 kết nối...';
