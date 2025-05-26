@@ -16,6 +16,16 @@
         <input type="password" id="loginPassword" placeholder="Mật khẩu của bạn">
         <button id="loginBtn">Đăng nhập</button>
         <p id="loginError" class="error-message"></p>
+
+        <!-- Thêm phần cấu hình WiFi -->
+        <div id="wifiConfig" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ccc;">
+            <h3>Cấu hình WiFi cho ESP32</h3>
+            <div id="bleStatus" class="status-message">Đang tìm thiết bị ESP32...</div>
+            <input type="text" id="wifiSSID" placeholder="Tên mạng WiFi">
+            <input type="password" id="wifiPassword" placeholder="Mật khẩu WiFi">
+            <button id="connectWifiBtn" disabled>Kết nối WiFi</button>
+            <p id="wifiError" class="error-message"></p>
+        </div>
     </div>
 
     <div class="control-panel" id="controlPanel" style="display: none;">
