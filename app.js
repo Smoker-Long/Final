@@ -12,8 +12,8 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const database = firebase.database();
-const dbRef = database.ref('esp32/status');   // Đường dẫn để đọc trạng thái từ ESP32
-const cmdRef = database.ref('esp32/commands'); // Đường dẫn để gửi lệnh đến ESP32
+const dbRef = database.ref('system_data');   // Đường dẫn để đọc trạng thái từ ESP32
+const cmdRef = database.ref('system_data'); // Đường dẫn để gửi lệnh đến ESP32
 
 // --- Lấy các phần tử DOM ---
 const loginContainer = document.getElementById('loginContainer');
@@ -23,6 +23,12 @@ const loginPassword = document.getElementById('loginPassword');
 const loginBtn = document.getElementById('loginBtn');
 const loginError = document.getElementById('loginError');
 const logoutBtn = document.getElementById('logoutBtn');
+const wifiConfig = document.getElementById('wifiConfig');
+const bleStatus = document.getElementById('bleStatus');
+const wifiSSID = document.getElementById('wifiSSID');
+const wifiPassword = document.getElementById('wifiPassword');
+const connectWifiBtn = document.getElementById('connectWifiBtn');
+const wifiError = document.getElementById('wifiError');
 
 const currentTemperatureSpan = document.getElementById('currentTemperature');
 const systemStatusSpan = document.getElementById('systemStatus');
@@ -36,26 +42,103 @@ const toggleModeBtn = document.getElementById('toggleModeBtn');
 // --- Biến trạng thái UI ---
 let isSystemOn = false;
 let isAutoMode = false;
-let relay1Active = true; // Mặc định ban đầu là Sưởi 1 (cho phù hợp với code ESP32)
+let relay1Active = true;
 let fanManuallyOn = false;
+let bleDevice = null;
+let bleCharacteristic = null;
+
+// --- Bluetooth Configuration ---
+const ESP32_SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+const ESP32_CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+
+// Hàm kết nối Bluetooth
+async function connectToESP32() {
+    try {
+        bleStatus.textContent = 'Đang tìm thiết bị ESP32...';
+        
+        // Tìm thiết bị BLE
+        bleDevice = await navigator.bluetooth.requestDevice({
+            filters: [{ name: 'ESP32_Config' }],
+            optionalServices: [ESP32_SERVICE_UUID]
+        });
+
+        bleStatus.textContent = 'Đã tìm thấy ESP32, đang kết nối...';
+        
+        // Kết nối với thiết bị
+        const server = await bleDevice.gatt.connect();
+        
+        // Lấy service
+        const service = await server.getPrimaryService(ESP32_SERVICE_UUID);
+        
+        // Lấy characteristic
+        bleCharacteristic = await service.getCharacteristic(ESP32_CHARACTERISTIC_UUID);
+        
+        bleStatus.textContent = 'Đã kết nối với ESP32';
+        connectWifiBtn.disabled = false;
+        
+        // Lắng nghe sự kiện ngắt kết nối
+        bleDevice.addEventListener('gattserverdisconnected', () => {
+            bleStatus.textContent = 'Mất kết nối với ESP32';
+            connectWifiBtn.disabled = true;
+            bleDevice = null;
+            bleCharacteristic = null;
+        });
+    } catch (error) {
+        bleStatus.textContent = 'Lỗi kết nối: ' + error.message;
+        console.error('Bluetooth error:', error);
+    }
+}
+
+// Hàm gửi thông tin WiFi qua Bluetooth
+async function sendWiFiCredentials() {
+    if (!bleCharacteristic) {
+        wifiError.textContent = 'Chưa kết nối với ESP32';
+        return;
+    }
+
+    const ssid = wifiSSID.value;
+    const password = wifiPassword.value;
+
+    if (!ssid || !password) {
+        wifiError.textContent = 'Vui lòng nhập đầy đủ thông tin WiFi';
+        return;
+    }
+
+    try {
+        const wifiData = `${ssid}:${password}`;
+        const encoder = new TextEncoder();
+        await bleCharacteristic.writeValue(encoder.encode(wifiData));
+        
+        wifiError.textContent = '';
+        bleStatus.textContent = 'Đã gửi thông tin WiFi, đang chờ ESP32 kết nối...';
+        
+        // Ẩn phần cấu hình WiFi sau khi gửi thành công
+        setTimeout(() => {
+            wifiConfig.style.display = 'none';
+        }, 3000);
+    } catch (error) {
+        wifiError.textContent = 'Lỗi gửi thông tin WiFi: ' + error.message;
+        console.error('Send WiFi error:', error);
+    }
+}
 
 // --- Firebase Authentication ---
-// Lắng nghe trạng thái xác thực để hiển thị giao diện phù hợp
 auth.onAuthStateChanged(user => {
     if (user) {
-        // Người dùng đã đăng nhập
         loginContainer.style.display = 'none';
         controlPanel.style.display = 'block';
-        startFirebaseListeners(); // Bắt đầu lắng nghe dữ liệu từ Firebase DB
+        startFirebaseListeners();
     } else {
-        // Người dùng chưa đăng nhập hoặc đã đăng xuất
         loginContainer.style.display = 'block';
         controlPanel.style.display = 'none';
-        stopFirebaseListeners(); // Dừng lắng nghe dữ liệu từ Firebase DB
-        // Đảm bảo xóa trường đăng nhập khi đăng xuất
+        stopFirebaseListeners();
         loginEmail.value = '';
         loginPassword.value = '';
-        loginError.textContent = ''; // Xóa thông báo lỗi cũ
+        loginError.textContent = '';
+        
+        // Hiển thị phần cấu hình WiFi khi chưa đăng nhập
+        wifiConfig.style.display = 'block';
+        connectToESP32();
     }
 });
 
@@ -101,22 +184,16 @@ function startFirebaseListeners() {
 
     statusListener = dbRef.on('value', snapshot => {
         const data = snapshot.val();
-        if (data && data.systemState) {
-            updateUI(data.systemState, data.buttonState, data.relayStatus);
-        } else {
-            console.log("Không có dữ liệu systemState hoặc dữ liệu rỗng.");
-            // Cập nhật UI về trạng thái mặc định hoặc "đang tải" nếu không có dữ liệu
-            currentTemperatureSpan.textContent = '--°C';
-            systemStatusSpan.textContent = 'Không có dữ liệu';
-            modeStatusSpan.textContent = 'Không có dữ liệu';
-            // Vô hiệu hóa tất cả các nút nếu không có dữ liệu trạng thái
-            toggleFanBtn.disabled = true;
-            toggleRelayBtn.disabled = true;
-            toggleSystemBtn.disabled = true;
-            toggleModeBtn.disabled = true;
+        if (data) {
+            // Cập nhật UI với dữ liệu từ Firebase
+            updateUI({
+                temperature: data.temperature,
+                on: !data.systemLocked,
+                isAutoMode: !data.manualMode,
+                fanManual: data.fanState,
+                relay1Active: data.heater1State
+            });
         }
-    }, error => {
-        console.error("Lỗi đọc Firebase Realtime Database:", error);
     });
 }
 
@@ -130,56 +207,34 @@ function stopFirebaseListeners() {
 }
 
 // --- Cập nhật giao diện người dùng (UI) dựa trên dữ liệu Firebase ---
-function updateUI(systemState, buttonState, relayStatus) {
+function updateUI(data) {
     // Đảm bảo các nút được kích hoạt trước khi cập nhật trạng thái disabled dựa trên logic
     toggleSystemBtn.disabled = false;
     toggleModeBtn.disabled = false;
 
     // Cập nhật nhiệt độ
-    if (systemState.temperature !== -127.0 && systemState.temperature !== null) {
-        currentTemperatureSpan.textContent = `${systemState.temperature.toFixed(2)}°C`;
-    } else {
-        currentTemperatureSpan.textContent = 'Đang đọc...';
+    if (data.temperature !== undefined) {
+        currentTemperatureSpan.textContent = `${data.temperature}°C`;
     }
 
-    // Cập nhật trạng thái hệ thống ON/OFF
-    isSystemOn = systemState.on;
-    if (isSystemOn) {
-        toggleSystemBtn.classList.remove('system-off');
-        toggleSystemBtn.classList.add('system-on');
-        toggleSystemBtn.querySelector('.button-state').textContent = 'ON';
-        systemStatusSpan.textContent = 'Đang hoạt động';
-    } else {
-        toggleSystemBtn.classList.remove('system-on');
-        toggleSystemBtn.classList.add('system-off');
-        toggleSystemBtn.querySelector('.button-state').textContent = 'OFF';
-        systemStatusSpan.textContent = 'Đã tắt';
-    }
+    // Cập nhật trạng thái hệ thống
+    isSystemOn = data.on;
+    updateSystemButton(isSystemOn);
 
-    // Cập nhật chế độ Auto/Manual
-    // Lấy trạng thái isAutoMode từ Firebase (systemState.isAutoMode)
-    isAutoMode = systemState.isAutoMode; 
+    // Cập nhật chế độ
+    isAutoMode = data.isAutoMode;
     updateModeButton(isAutoMode);
 
     // Cập nhật trạng thái Fan
-    // Lấy trạng thái fanManual từ Firebase (systemState.fanManual)
-    fanManuallyOn = systemState.fanManual; 
+    fanManuallyOn = data.fanManual;
     updateFanButton(fanManuallyOn);
-    
-    // Cập nhật trạng thái Sưởi (Relay)
-    // Lấy trạng thái relay1Active từ Firebase (systemState.relay1Active)
-    relay1Active = systemState.relay1Active; 
+
+    // Cập nhật trạng thái Sưởi
+    relay1Active = data.relay1Active;
     updateRelayButton(relay1Active);
 
-    // Xử lý trạng thái disabled của các nút điều khiển (Fan, Sưởi)
-    // Các nút này chỉ có thể nhấn khi hệ thống ON VÀ ở chế độ Manual
-    if (isAutoMode || !isSystemOn) {
-        toggleFanBtn.disabled = true;
-        toggleRelayBtn.disabled = true;
-    } else {
-        toggleFanBtn.disabled = false;
-        toggleRelayBtn.disabled = false;
-    }
+    // Cập nhật trạng thái disabled của các nút
+    updateButtonStates();
 }
 
 // Cập nhật giao diện nút Fan
@@ -223,40 +278,65 @@ function updateModeButton(isAuto) {
     }
 }
 
-// --- Xử lý sự kiện nhấn các nút điều khiển trên Web ---
+// Cập nhật giao diện nút Hệ thống ON/OFF
+function updateSystemButton(isSystemOn) {
+    if (isSystemOn) {
+        toggleSystemBtn.classList.remove('system-off');
+        toggleSystemBtn.classList.add('system-on');
+        toggleSystemBtn.querySelector('.button-state').textContent = 'ON';
+        systemStatusSpan.textContent = 'Đang hoạt động';
+    } else {
+        toggleSystemBtn.classList.remove('system-on');
+        toggleSystemBtn.classList.add('system-off');
+        toggleSystemBtn.querySelector('.button-state').textContent = 'OFF';
+        systemStatusSpan.textContent = 'Đã tắt';
+    }
+}
+
+// Cập nhật trạng thái disabled của các nút điều khiển
+function updateButtonStates() {
+    if (isAutoMode || !isSystemOn) {
+        toggleFanBtn.disabled = true;
+        toggleRelayBtn.disabled = true;
+    } else {
+        toggleFanBtn.disabled = false;
+        toggleRelayBtn.disabled = false;
+    }
+}
+
+// --- Event Listeners ---
+connectWifiBtn.addEventListener('click', sendWiFiCredentials);
 
 // Nút Fan
 toggleFanBtn.addEventListener('click', () => {
-    // Chỉ gửi lệnh khi nút không bị disabled
     if (!toggleFanBtn.disabled) {
         fanManuallyOn = !fanManuallyOn;
-        cmdRef.update({ buttonFan: fanManuallyOn })
-            .catch(error => console.error("Lỗi cập nhật trạng thái Fan lên Firebase:", error));
+        cmdRef.update({ fanState: fanManuallyOn })
+            .catch(error => console.error("Lỗi cập nhật Fan:", error));
     }
 });
 
-// Nút Sưởi (Relay)
+// Nút Sưởi
 toggleRelayBtn.addEventListener('click', () => {
-    // Chỉ gửi lệnh khi nút không bị disabled
     if (!toggleRelayBtn.disabled) {
         relay1Active = !relay1Active;
-        cmdRef.update({ buttonRelay: relay1Active })
-            .catch(error => console.error("Lỗi cập nhật trạng thái Relay lên Firebase:", error));
+        cmdRef.update({ 
+            heater1State: relay1Active,
+            heater2State: !relay1Active
+        }).catch(error => console.error("Lỗi cập nhật Sưởi:", error));
     }
 });
 
-// Nút Hệ thống ON/OFF
+// Nút Hệ thống
 toggleSystemBtn.addEventListener('click', () => {
     isSystemOn = !isSystemOn;
-    // Tương ứng với biến `buttonReset` trong code ESP32 của bạn
-    cmdRef.update({ buttonReset: isSystemOn })
-        .catch(error => console.error("Lỗi cập nhật trạng thái Hệ thống lên Firebase:", error));
+    cmdRef.update({ systemLocked: !isSystemOn })
+        .catch(error => console.error("Lỗi cập nhật Hệ thống:", error));
 });
 
-// Nút Chế độ Auto/Manual
+// Nút Chế độ
 toggleModeBtn.addEventListener('click', () => {
     isAutoMode = !isAutoMode;
-    // Tương ứng với biến `buttonMode` trong code ESP32 của bạn
-    cmdRef.update({ buttonMode: isAutoMode })
-        .catch(error => console.error("Lỗi cập nhật Chế độ lên Firebase:", error));
+    cmdRef.update({ manualMode: !isAutoMode })
+        .catch(error => console.error("Lỗi cập nhật Chế độ:", error));
 });
