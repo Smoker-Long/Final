@@ -12,8 +12,8 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const database = firebase.database();
-const dbRef = database.ref('esp32/status');   // Đường dẫn để đọc trạng thái từ ESP32
-const cmdRef = database.ref('esp32/status');  // Đường dẫn để gửi lệnh đến ESP32
+const dbRef = database.ref('esp32/status');   // Đọc trạng thái từ ESP32
+const cmdRef = database.ref('esp32/commands');  // Gửi lệnh đến ESP32
 
 // --- Lấy các phần tử DOM ---
 const loginContainer = document.getElementById('loginContainer');
