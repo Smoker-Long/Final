@@ -5,153 +5,143 @@ const firebaseConfig = {
     apiKey: "AIzaSyAv3UTIlN7DxfA0a6swQU8qN2mDkFuynJ0",
     authDomain: "data-ds18b20-e8360.firebaseapp.com",
     databaseURL: "https://data-ds18b20-e8360-default-rtdb.firebaseio.com",
-    projectId: "data-ds18b20-e8360",
-    storageBucket: "data-ds18b20-e8360.appspot.com",
-    messagingSenderId: "your-messaging-sender-id",
-    appId: "your-app-id"
+    projectId: "data-ds18b20-e8360"
 };
 
 // Khởi tạo Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const database = firebase.database();
-const dbRef = database.ref('system_data');   // Đường dẫn để đọc trạng thái từ ESP32
-const cmdRef = database.ref('system_data'); // Đường dẫn để gửi lệnh đến ESP32
+const dbRef = database.ref('system_data');
+const cmdRef = database.ref('commands');
 
 // --- Lấy các phần tử DOM ---
 const loginContainer = document.getElementById('loginContainer');
+const wifiConfig = document.getElementById('wifiConfig');
 const controlPanel = document.getElementById('controlPanel');
 const loginEmail = document.getElementById('loginEmail');
 const loginPassword = document.getElementById('loginPassword');
 const loginBtn = document.getElementById('loginBtn');
 const loginError = document.getElementById('loginError');
 const logoutBtn = document.getElementById('logoutBtn');
-const wifiConfig = document.getElementById('wifiConfig');
+
+// WiFi Configuration Elements
 const bleStatus = document.getElementById('bleStatus');
 const wifiSSID = document.getElementById('wifiSSID');
 const wifiPassword = document.getElementById('wifiPassword');
-const connectWifiBtn = document.getElementById('connectWifiBtn');
+const sendWifiBtn = document.getElementById('sendWifiBtn');
 const wifiError = document.getElementById('wifiError');
-const scanButton = document.getElementById('scanButton');
 
+// Control Panel Elements
 const currentTemperatureSpan = document.getElementById('currentTemperature');
 const systemStatusSpan = document.getElementById('systemStatus');
 const modeStatusSpan = document.getElementById('modeStatus');
-
 const toggleFanBtn = document.getElementById('toggleFanBtn');
 const toggleRelayBtn = document.getElementById('toggleRelayBtn');
 const toggleSystemBtn = document.getElementById('toggleSystemBtn');
 const toggleModeBtn = document.getElementById('toggleModeBtn');
 
+// BLE Variables
+let device = null;
+let characteristic = null;
+const SERVICE_UUID = "00001234-0000-1000-8000-00805f9b34fb";
+const CHARACTERISTIC_UUID = "00005678-0000-1000-8000-00805f9b34fb";
+
 // --- Biến trạng thái UI ---
 let isSystemOn = false;
 let isAutoMode = false;
-let relay1Active = true;
+let relay1Active = true; // Mặc định ban đầu là Sưởi 1 (cho phù hợp với code ESP32)
 let fanManuallyOn = false;
-let bluetoothDevice = null;
-let bluetoothCharacteristic = null;
 
-// --- Bluetooth Configuration ---
-const ESP32_SERVICE_UUID = '00001234-0000-1000-8000-00805f9b34fb';
-const ESP32_CHARACTERISTIC_UUID = '00005678-0000-1000-8000-00805f9b34fb';
+// --- Firebase Authentication ---
+// Lắng nghe trạng thái xác thực để hiển thị giao diện phù hợp
+auth.onAuthStateChanged(user => {
+    if (user) {
+        // Người dùng đã đăng nhập
+        loginContainer.style.display = 'none';
+        wifiConfig.style.display = 'block';
+        controlPanel.style.display = 'none';
+        startBLEScan();
+    } else {
+        // Người dùng chưa đăng nhập hoặc đã đăng xuất
+        loginContainer.style.display = 'block';
+        wifiConfig.style.display = 'none';
+        controlPanel.style.display = 'none';
+        stopBLEScan();
+        // Đảm bảo xóa trường đăng nhập khi đăng xuất
+        loginEmail.value = '';
+        loginPassword.value = '';
+        loginError.textContent = ''; // Xóa thông báo lỗi cũ
+    }
+});
 
-// Hàm kết nối Bluetooth
-async function connectToESP32() {
+// BLE Functions
+async function startBLEScan() {
     try {
-        if (!navigator.bluetooth) {
-            bleStatus.textContent = 'Trình duyệt không hỗ trợ Web Bluetooth';
-            return;
-        }
-
-        bleStatus.textContent = 'Đang tìm thiết bị ESP32...';
-        
-        // Tìm thiết bị BLE
-        bluetoothDevice = await navigator.bluetooth.requestDevice({
-            filters: [{ name: 'ESP_WIFI_CONFIG' }],
-            optionalServices: [ESP32_SERVICE_UUID]
+        device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [SERVICE_UUID] }]
         });
-
-        bleStatus.textContent = 'Đã tìm thấy ESP32, đang kết nối...';
-        
-        // Kết nối với thiết bị
-        const server = await bluetoothDevice.gatt.connect();
-        
-        // Lấy service
-        const service = await server.getPrimaryService(ESP32_SERVICE_UUID);
-        
-        // Lấy characteristic
-        bluetoothCharacteristic = await service.getCharacteristic(ESP32_CHARACTERISTIC_UUID);
         
         bleStatus.textContent = 'Đã kết nối với ESP32';
-        connectWifiBtn.disabled = false;
+        sendWifiBtn.disabled = false;
         
-        // Lắng nghe sự kiện ngắt kết nối
-        bluetoothDevice.addEventListener('gattserverdisconnected', () => {
-            bleStatus.textContent = 'Mất kết nối với ESP32';
-            connectWifiBtn.disabled = true;
-            bluetoothDevice = null;
-            bluetoothCharacteristic = null;
-        });
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+        
+        device.addEventListener('gattserverdisconnected', onDisconnected);
     } catch (error) {
-        bleStatus.textContent = 'Lỗi kết nối: ' + error.message;
-        console.error('Bluetooth error:', error);
+        bleStatus.textContent = 'Lỗi kết nối BLE: ' + error;
+        console.error('BLE Error:', error);
     }
 }
 
-// Hàm gửi thông tin WiFi qua Bluetooth
-async function sendWiFiCredentials() {
-    if (!bluetoothCharacteristic) {
+function stopBLEScan() {
+    if (device && device.gatt.connected) {
+        device.gatt.disconnect();
+    }
+}
+
+function onDisconnected() {
+    bleStatus.textContent = 'Mất kết nối với ESP32';
+    sendWifiBtn.disabled = true;
+}
+
+// WiFi Configuration
+sendWifiBtn.addEventListener('click', async () => {
+    if (!characteristic) {
         wifiError.textContent = 'Chưa kết nối với ESP32';
         return;
     }
 
-    const ssid = wifiSSID.value;
-    const password = wifiPassword.value;
+    const ssid = wifiSSID.value.trim();
+    const password = wifiPassword.value.trim();
 
     if (!ssid || !password) {
-        wifiError.textContent = 'Vui lòng nhập đầy đủ thông tin WiFi';
+        wifiError.textContent = 'Vui lòng nhập SSID và mật khẩu WiFi';
         return;
     }
 
     try {
-        const wifiData = `${ssid}:${password}`;
-        const encoder = new TextEncoder();
-        await bluetoothCharacteristic.writeValue(encoder.encode(wifiData));
-        
+        const data = `${ssid}:${password}`;
+        await characteristic.writeValue(new TextEncoder().encode(data));
         wifiError.textContent = '';
-        bleStatus.textContent = 'Đã gửi thông tin WiFi, đang chờ ESP32 kết nối...';
+        bleStatus.textContent = 'Đã gửi cấu hình WiFi';
         
-        // Ẩn phần cấu hình WiFi sau khi gửi thành công
+        // Wait for WiFi connection
         setTimeout(() => {
             wifiConfig.style.display = 'none';
-        }, 3000);
+            controlPanel.style.display = 'block';
+            startFirebaseListeners();
+        }, 5000);
     } catch (error) {
-        wifiError.textContent = 'Lỗi gửi thông tin WiFi: ' + error.message;
-        console.error('Send WiFi error:', error);
-    }
-}
-
-// --- Firebase Authentication ---
-auth.onAuthStateChanged(user => {
-    if (user) {
-        loginContainer.style.display = 'none';
-        controlPanel.style.display = 'block';
-        startFirebaseListeners();
-    } else {
-        loginContainer.style.display = 'block';
-        controlPanel.style.display = 'none';
-        stopFirebaseListeners();
-        loginEmail.value = '';
-        loginPassword.value = '';
-        loginError.textContent = '';
-        
-        // Hiển thị phần cấu hình WiFi khi chưa đăng nhập
-        wifiConfig.style.display = 'block';
+        wifiError.textContent = 'Lỗi gửi cấu hình: ' + error;
+        console.error('Send Error:', error);
     }
 });
 
 // Xử lý sự kiện nhấn nút Đăng nhập
-loginBtn.addEventListener('click', async () => {
+loginBtn.addEventListener('click', () => {
     const email = loginEmail.value;
     const password = loginPassword.value;
 
@@ -160,33 +150,26 @@ loginBtn.addEventListener('click', async () => {
         return;
     }
 
-    try {
-        const userCredential = await auth.signInWithEmailAndPassword(email, password);
-        loginContainer.style.display = 'none';
-        controlPanel.style.display = 'block';
-        wifiConfig.style.display = 'block';
-        
-        // Chỉ khởi tạo BLE sau khi đăng nhập thành công
-        if (navigator.bluetooth) {
-            bleStatus.textContent = 'Nhấn nút "Tìm thiết bị ESP32" để kết nối';
-        } else {
-            bleStatus.textContent = 'Trình duyệt không hỗ trợ Web Bluetooth';
-        }
-    } catch (error) {
-        loginError.textContent = error.message;
-    }
+    auth.signInWithEmailAndPassword(email, password)
+        .then(() => {
+            loginError.textContent = ''; // Xóa lỗi nếu đăng nhập thành công
+            console.log('Đăng nhập thành công!');
+        })
+        .catch(error => {
+            loginError.textContent = `Lỗi đăng nhập: ${error.message}`;
+            console.error('Lỗi đăng nhập Firebase:', error);
+        });
 });
 
 // Xử lý sự kiện nhấn nút Đăng xuất
 logoutBtn.addEventListener('click', () => {
-    auth.signOut().then(() => {
-        loginContainer.style.display = 'block';
-        controlPanel.style.display = 'none';
-        wifiConfig.style.display = 'none';
-        if (bluetoothDevice) {
-            bluetoothDevice.gatt.disconnect();
-        }
-    });
+    auth.signOut()
+        .then(() => {
+            console.log('Đăng xuất thành công');
+        })
+        .catch(error => {
+            console.error('Lỗi đăng xuất Firebase:', error);
+        });
 });
 
 // --- Lắng nghe dữ liệu từ Firebase Realtime Database ---
@@ -200,14 +183,7 @@ function startFirebaseListeners() {
     statusListener = dbRef.on('value', snapshot => {
         const data = snapshot.val();
         if (data) {
-            // Cập nhật UI với dữ liệu từ Firebase
-            updateUI({
-                temperature: data.temperature,
-                on: !data.systemLocked,
-                isAutoMode: !data.manualMode,
-                fanManual: data.fanState,
-                relay1Active: data.heater1State
-            });
+            updateUI(data);
         }
     });
 }
@@ -229,87 +205,37 @@ function updateUI(data) {
 
     // Cập nhật nhiệt độ
     if (data.temperature !== undefined) {
-        currentTemperatureSpan.textContent = `${data.temperature}°C`;
+        currentTemperatureSpan.textContent = `${data.temperature.toFixed(1)}°C`;
     }
 
-    // Cập nhật trạng thái hệ thống
-    isSystemOn = data.on;
-    updateSystemButton(isSystemOn);
+    // Cập nhật trạng thái hệ thống ON/OFF
+    isSystemOn = !data.systemLocked;
+    systemStatusSpan.textContent = isSystemOn ? 'Đang hoạt động' : 'Đã tắt';
+    toggleSystemBtn.classList.toggle('system-on', isSystemOn);
+    toggleSystemBtn.classList.toggle('system-off', !isSystemOn);
+    toggleSystemBtn.querySelector('.button-state').textContent = isSystemOn ? 'ON' : 'OFF';
 
-    // Cập nhật chế độ
-    isAutoMode = data.isAutoMode;
-    updateModeButton(isAutoMode);
+    // Cập nhật chế độ Auto/Manual
+    isAutoMode = !data.manualMode;
+    modeStatusSpan.textContent = isAutoMode ? 'Tự động' : 'Thủ công';
+    toggleModeBtn.classList.toggle('mode-auto', isAutoMode);
+    toggleModeBtn.classList.toggle('mode-manual', !isAutoMode);
+    toggleModeBtn.querySelector('.button-state').textContent = isAutoMode ? 'Auto' : 'Manual';
 
     // Cập nhật trạng thái Fan
-    fanManuallyOn = data.fanManual;
-    updateFanButton(fanManuallyOn);
+    fanManuallyOn = data.fanState;
+    toggleFanBtn.classList.toggle('on', fanManuallyOn);
+    toggleFanBtn.classList.toggle('off', !fanManuallyOn);
+    toggleFanBtn.querySelector('.button-state').textContent = fanManuallyOn ? 'ON' : 'OFF';
 
-    // Cập nhật trạng thái Sưởi
-    relay1Active = data.relay1Active;
-    updateRelayButton(relay1Active);
+    // Cập nhật trạng thái Sưởi (Relay)
+    relay1Active = data.heater1State;
+    toggleRelayBtn.classList.toggle('relay1', relay1Active);
+    toggleRelayBtn.classList.toggle('relay2', !relay1Active);
+    toggleRelayBtn.querySelector('.button-state').textContent = relay1Active ? 'Sưởi 1' : 'Sưởi 2';
 
-    // Cập nhật trạng thái disabled của các nút
-    updateButtonStates();
-}
-
-// Cập nhật giao diện nút Fan
-function updateFanButton(isOn) {
-    if (isOn) {
-        toggleFanBtn.classList.remove('off');
-        toggleFanBtn.classList.add('on');
-        toggleFanBtn.querySelector('.button-state').textContent = 'ON';
-    } else {
-        toggleFanBtn.classList.remove('on');
-        toggleFanBtn.classList.add('off');
-        toggleFanBtn.querySelector('.button-state').textContent = 'OFF';
-    }
-}
-
-// Cập nhật giao diện nút Sưởi
-function updateRelayButton(isRelay1Active) {
-    if (isRelay1Active) {
-        toggleRelayBtn.classList.remove('relay2');
-        toggleRelayBtn.classList.add('relay1');
-        toggleRelayBtn.querySelector('.button-state').textContent = 'Sưởi 1';
-    } else {
-        toggleRelayBtn.classList.remove('relay1');
-        toggleRelayBtn.classList.add('relay2');
-        toggleRelayBtn.querySelector('.button-state').textContent = 'Sưởi 2';
-    }
-}
-
-// Cập nhật giao diện nút Chế độ (Auto/Manual)
-function updateModeButton(isAuto) {
-    if (isAuto) {
-        toggleModeBtn.classList.remove('mode-manual');
-        toggleModeBtn.classList.add('mode-auto');
-        toggleModeBtn.querySelector('.button-state').textContent = 'Auto';
-        modeStatusSpan.textContent = 'Tự động';
-    } else {
-        toggleModeBtn.classList.remove('mode-auto');
-        toggleModeBtn.classList.add('mode-manual');
-        toggleModeBtn.querySelector('.button-state').textContent = 'Manual';
-        modeStatusSpan.textContent = 'Thủ công';
-    }
-}
-
-// Cập nhật giao diện nút Hệ thống ON/OFF
-function updateSystemButton(isSystemOn) {
-    if (isSystemOn) {
-        toggleSystemBtn.classList.remove('system-off');
-        toggleSystemBtn.classList.add('system-on');
-        toggleSystemBtn.querySelector('.button-state').textContent = 'ON';
-        systemStatusSpan.textContent = 'Đang hoạt động';
-    } else {
-        toggleSystemBtn.classList.remove('system-on');
-        toggleSystemBtn.classList.add('system-off');
-        toggleSystemBtn.querySelector('.button-state').textContent = 'OFF';
-        systemStatusSpan.textContent = 'Đã tắt';
-    }
-}
-
-// Cập nhật trạng thái disabled của các nút điều khiển
-function updateButtonStates() {
+    // Xử lý trạng thái disabled của các nút điều khiển (Fan, Sưởi)
+    // Các nút này chỉ có thể nhấn khi hệ thống ON VÀ ở chế độ Manual
     if (isAutoMode || !isSystemOn) {
         toggleFanBtn.disabled = true;
         toggleRelayBtn.disabled = true;
@@ -319,105 +245,37 @@ function updateButtonStates() {
     }
 }
 
-// --- Event Listeners ---
-scanButton.addEventListener('click', async () => {
-    try {
-        await connectToESP32();
-    } catch (error) {
-        bleStatus.textContent = 'Lỗi: ' + error.message;
-    }
-});
-
-connectWifiBtn.addEventListener('click', async () => {
-    if (!bluetoothCharacteristic) {
-        wifiError.textContent = 'Chưa kết nối với ESP32';
-        return;
-    }
-
-    const ssid = wifiSSID.value;
-    const password = wifiPassword.value;
-
-    if (!ssid || !password) {
-        wifiError.textContent = 'Vui lòng nhập đầy đủ thông tin WiFi';
-        return;
-    }
-
-    try {
-        const wifiData = `${ssid}:${password}`;
-        const encoder = new TextEncoder();
-        await bluetoothCharacteristic.writeValue(encoder.encode(wifiData));
-        
-        wifiError.textContent = '';
-        bleStatus.textContent = 'Đã gửi thông tin WiFi, đang chờ ESP32 kết nối...';
-        
-        // Ẩn phần cấu hình WiFi sau khi gửi thành công
-        setTimeout(() => {
-            wifiConfig.style.display = 'none';
-        }, 3000);
-    } catch (error) {
-        wifiError.textContent = 'Lỗi gửi thông tin WiFi: ' + error.message;
-        console.error('Send WiFi error:', error);
-    }
-});
+// --- Xử lý sự kiện nhấn các nút điều khiển trên Web ---
 
 // Nút Fan
 toggleFanBtn.addEventListener('click', () => {
+    // Chỉ gửi lệnh khi nút không bị disabled
     if (!toggleFanBtn.disabled) {
         fanManuallyOn = !fanManuallyOn;
-        cmdRef.update({ fanState: fanManuallyOn })
-            .catch(error => console.error("Lỗi cập nhật Fan:", error));
+        cmdRef.update({ fanState: fanManuallyOn });
     }
 });
 
-// Nút Sưởi
+// Nút Sưởi (Relay)
 toggleRelayBtn.addEventListener('click', () => {
+    // Chỉ gửi lệnh khi nút không bị disabled
     if (!toggleRelayBtn.disabled) {
         relay1Active = !relay1Active;
         cmdRef.update({ 
             heater1State: relay1Active,
             heater2State: !relay1Active
-        }).catch(error => console.error("Lỗi cập nhật Sưởi:", error));
+        });
     }
 });
 
-// Nút Hệ thống
+// Nút Hệ thống ON/OFF
 toggleSystemBtn.addEventListener('click', () => {
     isSystemOn = !isSystemOn;
-    cmdRef.update({ systemLocked: !isSystemOn })
-        .catch(error => console.error("Lỗi cập nhật Hệ thống:", error));
+    cmdRef.update({ systemLocked: !isSystemOn });
 });
 
-// Nút Chế độ
+// Nút Chế độ Auto/Manual
 toggleModeBtn.addEventListener('click', () => {
     isAutoMode = !isAutoMode;
-    cmdRef.update({ manualMode: !isAutoMode })
-        .catch(error => console.error("Lỗi cập nhật Chế độ:", error));
+    cmdRef.update({ manualMode: !isAutoMode });
 });
-
-// BLE Functions
-async function initializeBLE() {
-    try {
-        bleStatus.textContent = 'Đang tìm thiết bị ESP32...';
-        
-        // Tìm thiết bị BLE
-        bluetoothDevice = await navigator.bluetooth.requestDevice({
-            filters: [{ services: [ESP32_SERVICE_UUID] }]
-        });
-        bleStatus.textContent = 'Đã kết nối với ESP32';
-        connectWifiBtn.disabled = false;
-        
-        const server = await bluetoothDevice.gatt.connect();
-        const service = await server.getPrimaryService(ESP32_SERVICE_UUID);
-        bluetoothCharacteristic = await service.getCharacteristic(ESP32_CHARACTERISTIC_UUID);
-        
-        bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
-    } catch (error) {
-        bleStatus.textContent = 'Lỗi kết nối: ' + error;
-    }
-}
-
-function onDisconnected() {
-    bleStatus.textContent = 'Mất kết nối với ESP32';
-    connectWifiBtn.disabled = true;
-}
-
