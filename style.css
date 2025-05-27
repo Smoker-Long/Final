@@ -9,7 +9,7 @@ body {
     color: #333;
 }
 
-.login-container, .control-panel {
+.login-container, .control-panel, .wifi-config {
     background-color: #ffffff;
     padding: 30px;
     border-radius: 10px;
@@ -19,12 +19,12 @@ body {
     text-align: center;
 }
 
-.login-container h2, .control-panel h1 {
+.login-container h2, .control-panel h1, .wifi-config h2 {
     color: #2c3e50;
     margin-bottom: 25px;
 }
 
-.login-container input {
+.login-container input, .wifi-config input {
     width: calc(100% - 20px);
     padding: 12px;
     margin-bottom: 15px;
@@ -33,7 +33,7 @@ body {
     font-size: 16px;
 }
 
-.login-container button, .logout-button {
+.login-container button, .logout-button, .wifi-config button {
     background-color: #3498db;
     color: white;
     padding: 12px 20px;
@@ -45,7 +45,7 @@ body {
     width: 100%;
 }
 
-.login-container button:hover, .logout-button:hover {
+.login-container button:hover, .logout-button:hover, .wifi-config button:hover {
     background-color: #2980b9;
 }
 
@@ -53,6 +53,14 @@ body {
     color: #e74c3c;
     margin-top: 10px;
     font-size: 14px;
+}
+
+.status-message {
+    color: #3498db;
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #f8f9fa;
 }
 
 /* Control Panel Styles */
@@ -88,7 +96,7 @@ body {
 }
 
 .temperature .value {
-    color: #e67e22; /* Cam cho nhiệt độ */
+    color: #e67e22;
 }
 
 .button-grid {
@@ -129,33 +137,32 @@ body {
 
 /* Button Colors */
 .control-button.on, .control-button.mode-auto, .control-button.system-on {
-    background-color: #f1c40f; /* Vàng */
+    background-color: #f1c40f;
 }
 
 .control-button.off, .control-button.mode-manual, .control-button.system-off {
-    background-color: #3498db; /* Xanh dương */
+    background-color: #3498db;
 }
 
 /* Fan */
-.control-button#toggleFanBtn.on { background-color: #2ecc71; /* Xanh lá cây */ }
-.control-button#toggleFanBtn.off { background-color: #f1c40f; /* Vàng */ }
+.control-button#toggleFanBtn.on { background-color: #2ecc71; }
+.control-button#toggleFanBtn.off { background-color: #f1c40f; }
 
 /* Heater */
-.control-button#toggleRelayBtn.relay1 { background-color: #f1c40f; /* Vàng (Sưởi 1) */ }
-.control-button#toggleRelayBtn.relay2 { background-color: #2ecc71; /* Xanh lá cây (Sưởi 2) */ }
+.control-button#toggleRelayBtn.relay1 { background-color: #f1c40f; }
+.control-button#toggleRelayBtn.relay2 { background-color: #2ecc71; }
 
 /* System ON/OFF */
-.control-button#toggleSystemBtn.system-on { background-color: #f1c40f; /* Vàng (ON) */ }
-.control-button#toggleSystemBtn.system-off { background-color: #3498db; /* Xanh dương (OFF) */ }
+.control-button#toggleSystemBtn.system-on { background-color: #f1c40f; }
+.control-button#toggleSystemBtn.system-off { background-color: #3498db; }
 
 /* Auto/Manual Mode */
-.control-button#toggleModeBtn.mode-auto { background-color: #f1c40f; /* Vàng (Auto) */ }
-.control-button#toggleModeBtn.mode-manual { background-color: #3498db; /* Xanh dương (Manual) */ }
-
+.control-button#toggleModeBtn.mode-auto { background-color: #f1c40f; }
+.control-button#toggleModeBtn.mode-manual { background-color: #3498db; }
 
 /* Disabled state */
-.control-button:disabled {
-    background-color: #bdc3c7; /* Xám */
+.control-button:disabled, .wifi-config button:disabled {
+    background-color: #bdc3c7;
     cursor: not-allowed;
     opacity: 0.7;
 }
@@ -164,12 +171,13 @@ body {
     margin-top: 20px;
     background-color: #e74c3c;
 }
+
 .logout-button:hover {
     background-color: #c0392b;
 }
 
 @media (max-width: 600px) {
     .button-grid {
-        grid-template-columns: 1fr; /* Stack buttons on small screens */
+        grid-template-columns: 1fr;
     }
 }
