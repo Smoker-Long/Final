@@ -35,6 +35,8 @@ const toggleRelayBtn = document.getElementById('toggleRelayBtn');
 const toggleSystemBtn = document.getElementById('toggleSystemBtn');
 const toggleModeBtn = document.getElementById('toggleModeBtn');
 
+const changeWifiBtn = document.getElementById('changeWifiBtn');
+
 // --- Biến trạng thái UI ---
 let isSystemOn = false;
 let isAutoMode = false;
@@ -447,4 +449,11 @@ toggleModeBtn.addEventListener('click', () => {
     cmdRef.update({ manualMode: !isAutoMode })
         .then(() => console.log("Mode updated successfully"))
         .catch(error => console.error("Lỗi cập nhật Chế độ lên Firebase:", error));
+});
+
+changeWifiBtn.addEventListener('click', () => {
+    wifiModal.style.display = 'block';
+    wifiModalStatus.textContent = '';
+    wifiSSIDInput.value = '';
+    wifiPasswordInput.value = '';
 });
