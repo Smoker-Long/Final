@@ -55,6 +55,10 @@ let fanManuallyOn = false;
 
 // BLE Functions
 async function connectToDevice() {
+    if (!navigator.bluetooth) {
+        throw new Error('Trình duyệt không hỗ trợ Web Bluetooth API');
+    }
+
     try {
         bleStatus.textContent = 'Đang tìm kiếm thiết bị...';
         sendWifiBtn.disabled = true;
@@ -87,7 +91,11 @@ async function connectToDevice() {
         return true;
     } catch (error) {
         console.error('BLE Connection Error:', error);
-        bleStatus.textContent = 'Lỗi kết nối BLE: ' + error;
+        if (error.name === 'NotFoundError' && error.message.includes('cancelled')) {
+            bleStatus.textContent = 'Vui lòng chọn thiết bị ESP32 từ danh sách';
+        } else {
+            bleStatus.textContent = 'Lỗi kết nối BLE: ' + error.message;
+        }
         sendWifiBtn.disabled = true;
         return false;
     }
@@ -99,6 +107,46 @@ function onDisconnected() {
     characteristic = null;
     device = null;
 }
+
+// Add a connect button to the WiFi config section
+const connectBLEBtn = document.createElement('button');
+connectBLEBtn.id = 'connectBLEBtn';
+connectBLEBtn.textContent = 'Kết nối với ESP32';
+connectBLEBtn.className = 'control-button';
+wifiConfig.insertBefore(connectBLEBtn, wifiSSID);
+
+// Add event listener for the connect button
+connectBLEBtn.addEventListener('click', function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Reset status message
+    bleStatus.textContent = 'Đang tìm kiếm thiết bị...';
+    
+    // Wrap the async operation in a Promise
+    const connectPromise = new Promise(async (resolve, reject) => {
+        try {
+            const result = await connectToDevice();
+            resolve(result);
+        } catch (error) {
+            reject(error);
+        }
+    });
+
+    // Handle the Promise
+    connectPromise
+        .then(() => {
+            console.log('BLE connection successful');
+        })
+        .catch((error) => {
+            console.error('BLE Connection Error:', error);
+            if (error.name === 'NotFoundError' && error.message.includes('cancelled')) {
+                bleStatus.textContent = 'Vui lòng chọn thiết bị ESP32 từ danh sách';
+            } else {
+                bleStatus.textContent = 'Lỗi kết nối BLE: ' + error.message;
+            }
+        });
+});
 
 // WiFi Configuration
 sendWifiBtn.addEventListener('click', async () => {
@@ -130,31 +178,6 @@ sendWifiBtn.addEventListener('click', async () => {
     } catch (error) {
         wifiError.textContent = 'Lỗi gửi cấu hình: ' + error;
         console.error('Send Error:', error);
-    }
-});
-
-// Add a connect button to the WiFi config section
-const connectBLEBtn = document.createElement('button');
-connectBLEBtn.id = 'connectBLEBtn';
-connectBLEBtn.textContent = 'Kết nối với ESP32';
-connectBLEBtn.className = 'control-button';
-wifiConfig.insertBefore(connectBLEBtn, wifiSSID);
-
-// Add event listener for the connect button
-connectBLEBtn.addEventListener('click', async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    if (!navigator.bluetooth) {
-        bleStatus.textContent = 'Trình duyệt không hỗ trợ Web Bluetooth API';
-        return;
-    }
-    
-    try {
-        await connectToDevice();
-    } catch (error) {
-        console.error('BLE Connection Error:', error);
-        bleStatus.textContent = 'Lỗi kết nối BLE: ' + error;
     }
 });
 
@@ -303,11 +326,32 @@ auth.onAuthStateChanged(user => {
     if (user) {
         // Người dùng đã đăng nhập
         loginContainer.style.display = 'none';
-        wifiConfig.style.display = 'block';
-        controlPanel.style.display = 'none';
-        // Reset BLE status
-        bleStatus.textContent = 'Nhấn nút "Kết nối với ESP32" để bắt đầu';
-        sendWifiBtn.disabled = true;
+        
+        // Kiểm tra trạng thái kết nối WiFi từ Firebase
+        database.ref('system_data').once('value')
+            .then((snapshot) => {
+                const data = snapshot.val();
+                if (data && data.wifiConnected) {
+                    // Nếu đã kết nối WiFi, chuyển thẳng đến bảng điều khiển
+                    wifiConfig.style.display = 'none';
+                    controlPanel.style.display = 'block';
+                    startFirebaseListeners();
+                } else {
+                    // Nếu chưa kết nối WiFi, hiển thị màn hình cấu hình
+                    wifiConfig.style.display = 'block';
+                    controlPanel.style.display = 'none';
+                    bleStatus.textContent = 'Nhấn nút "Kết nối với ESP32" để bắt đầu';
+                    sendWifiBtn.disabled = true;
+                }
+            })
+            .catch((error) => {
+                console.error('Error checking WiFi status:', error);
+                // Nếu có lỗi, hiển thị màn hình cấu hình
+                wifiConfig.style.display = 'block';
+                controlPanel.style.display = 'none';
+                bleStatus.textContent = 'Nhấn nút "Kết nối với ESP32" để bắt đầu';
+                sendWifiBtn.disabled = true;
+            });
     } else {
         // Người dùng chưa đăng nhập hoặc đã đăng xuất
         loginContainer.style.display = 'block';
@@ -325,3 +369,23 @@ auth.onAuthStateChanged(user => {
         characteristic = null;
     }
 });
+
+// Update Firebase data structure
+function updateFirebase() {
+    if (Firebase.ready()) {
+        FirebaseJson json;
+        json.set("temperature", state.temp);
+        json.set("heater1State", state.heater1);
+        json.set("heater2State", state.heater2);
+        json.set("fanState", state.fan);
+        json.set("manualMode", state.manual);
+        json.set("systemLocked", state.locked);
+        json.set("heater1Disabled", state.heater1Disabled);
+        json.set("heater2Disabled", state.heater2Disabled);
+        json.set("wifiConnected", WiFi.status() == WL_CONNECTED);  // Add WiFi connection status
+
+        if (!Firebase.RTDB.setJSON(&fbdo, "/system_data", &json)) {
+            Serial.println("Firebase update failed!");
+        }
+    }
+}
