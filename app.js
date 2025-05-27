@@ -53,62 +53,51 @@ let isAutoMode = false;
 let relay1Active = true; // Mặc định ban đầu là Sưởi 1 (cho phù hợp với code ESP32)
 let fanManuallyOn = false;
 
-// --- Firebase Authentication ---
-// Lắng nghe trạng thái xác thực để hiển thị giao diện phù hợp
-auth.onAuthStateChanged(user => {
-    if (user) {
-        // Người dùng đã đăng nhập
-        loginContainer.style.display = 'none';
-        wifiConfig.style.display = 'block';
-        controlPanel.style.display = 'none';
-    } else {
-        // Người dùng chưa đăng nhập hoặc đã đăng xuất
-        loginContainer.style.display = 'block';
-        wifiConfig.style.display = 'none';
-        controlPanel.style.display = 'none';
-        // Đảm bảo xóa trường đăng nhập khi đăng xuất
-        loginEmail.value = '';
-        loginPassword.value = '';
-        loginError.textContent = ''; // Xóa thông báo lỗi cũ
-    }
-});
-
 // BLE Functions
-async function startBLEScan() {
+async function connectToDevice() {
     try {
         bleStatus.textContent = 'Đang tìm kiếm thiết bị...';
         sendWifiBtn.disabled = true;
         
-        // Request device directly in the click handler
-        const device = await navigator.bluetooth.requestDevice({
+        // Request device
+        device = await navigator.bluetooth.requestDevice({
             filters: [{ services: [SERVICE_UUID] }],
             optionalServices: [SERVICE_UUID]
         });
         
-        bleStatus.textContent = 'Đã kết nối với ESP32';
-        sendWifiBtn.disabled = false;
+        bleStatus.textContent = 'Đã tìm thấy thiết bị, đang kết nối...';
         
+        // Connect to GATT server
         const server = await device.gatt.connect();
+        bleStatus.textContent = 'Đã kết nối GATT server, đang tìm service...';
+        
+        // Get the service
         const service = await server.getPrimaryService(SERVICE_UUID);
+        bleStatus.textContent = 'Đã tìm thấy service, đang tìm characteristic...';
+        
+        // Get the characteristic
         characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
         
+        bleStatus.textContent = 'Đã kết nối thành công với ESP32';
+        sendWifiBtn.disabled = false;
+        
+        // Add disconnect listener
         device.addEventListener('gattserverdisconnected', onDisconnected);
+        
+        return true;
     } catch (error) {
+        console.error('BLE Connection Error:', error);
         bleStatus.textContent = 'Lỗi kết nối BLE: ' + error;
-        console.error('BLE Error:', error);
         sendWifiBtn.disabled = true;
-    }
-}
-
-function stopBLEScan() {
-    if (device && device.gatt.connected) {
-        device.gatt.disconnect();
+        return false;
     }
 }
 
 function onDisconnected() {
     bleStatus.textContent = 'Mất kết nối với ESP32';
     sendWifiBtn.disabled = true;
+    characteristic = null;
+    device = null;
 }
 
 // WiFi Configuration
@@ -151,11 +140,18 @@ connectBLEBtn.textContent = 'Kết nối với ESP32';
 connectBLEBtn.className = 'control-button';
 wifiConfig.insertBefore(connectBLEBtn, wifiSSID);
 
-// Add event listener for the connect button - directly call startBLEScan
+// Add event listener for the connect button
 connectBLEBtn.addEventListener('click', async (event) => {
-    event.preventDefault(); // Prevent any default behavior
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (!navigator.bluetooth) {
+        bleStatus.textContent = 'Trình duyệt không hỗ trợ Web Bluetooth API';
+        return;
+    }
+    
     try {
-        await startBLEScan();
+        await connectToDevice();
     } catch (error) {
         console.error('BLE Connection Error:', error);
         bleStatus.textContent = 'Lỗi kết nối BLE: ' + error;
@@ -300,4 +296,32 @@ toggleSystemBtn.addEventListener('click', () => {
 toggleModeBtn.addEventListener('click', () => {
     isAutoMode = !isAutoMode;
     cmdRef.update({ manualMode: !isAutoMode });
+});
+
+// Update auth state change handler
+auth.onAuthStateChanged(user => {
+    if (user) {
+        // Người dùng đã đăng nhập
+        loginContainer.style.display = 'none';
+        wifiConfig.style.display = 'block';
+        controlPanel.style.display = 'none';
+        // Reset BLE status
+        bleStatus.textContent = 'Nhấn nút "Kết nối với ESP32" để bắt đầu';
+        sendWifiBtn.disabled = true;
+    } else {
+        // Người dùng chưa đăng nhập hoặc đã đăng xuất
+        loginContainer.style.display = 'block';
+        wifiConfig.style.display = 'none';
+        controlPanel.style.display = 'none';
+        // Reset form
+        loginEmail.value = '';
+        loginPassword.value = '';
+        loginError.textContent = '';
+        // Reset BLE state
+        if (device && device.gatt.connected) {
+            device.gatt.disconnect();
+        }
+        device = null;
+        characteristic = null;
+    }
 });
