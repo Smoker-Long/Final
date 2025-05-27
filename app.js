@@ -47,6 +47,14 @@ let isBLEConnected = false;
 let bluetoothDevice = null;
 let bluetoothCharacteristic = null;
 
+// Modal WiFi
+const wifiModal = document.getElementById('wifiModal');
+const closeWifiModal = document.getElementById('closeWifiModal');
+const wifiSSIDInput = document.getElementById('wifiSSID');
+const wifiPasswordInput = document.getElementById('wifiPassword');
+const sendWifiBtn = document.getElementById('sendWifiBtn');
+const wifiModalStatus = document.getElementById('wifiModalStatus');
+
 // Kiểm tra kết nối Firebase
 function checkFirebaseConnection() {
     return new Promise((resolve) => {
@@ -157,19 +165,77 @@ function onDisconnected() {
 
 // Add click handler for WiFi connection button
 connectWifiBtn.addEventListener('click', async () => {
-    if (!isBLEConnected) {
-        try {
-            if (!navigator.bluetooth) {
-                throw new Error('Web Bluetooth API is not available in your browser. Please use Chrome, Edge, or Opera.');
-            }
-            await connectToDevice();
-        } catch (error) {
-            console.error('Error:', error);
-            wifiStatus.textContent = error.message;
-        }
-    } else {
+    if (!isBLEConnected && !isWifiConnected) {
+        wifiModal.style.display = 'block';
+        wifiModalStatus.textContent = '';
+        wifiSSIDInput.value = '';
+        wifiPasswordInput.value = '';
+    } else if (isBLEConnected) {
         if (bluetoothDevice && bluetoothDevice.gatt.connected) {
             bluetoothDevice.gatt.disconnect();
+        }
+    }
+});
+
+closeWifiModal.onclick = function() {
+    wifiModal.style.display = 'none';
+};
+window.onclick = function(event) {
+    if (event.target == wifiModal) wifiModal.style.display = 'none';
+};
+
+sendWifiBtn.addEventListener('click', async () => {
+    const ssid = wifiSSIDInput.value.trim();
+    const password = wifiPasswordInput.value.trim();
+    if (!ssid || !password) {
+        wifiModalStatus.textContent = 'Vui lòng nhập đầy đủ tên WiFi và mật khẩu!';
+        return;
+    }
+    wifiModalStatus.textContent = 'Đang gửi thông tin WiFi...';
+    try {
+        if (!navigator.bluetooth) throw new Error('Web Bluetooth API is not available.');
+        // Bắt đầu kết nối BLE
+        bluetoothDevice = await navigator.bluetooth.requestDevice({
+            filters: [{ namePrefix: 'ESP_WIFI_CONFIG' }],
+            optionalServices: ['00001234-0000-1000-8000-00805f9b34fb']
+        });
+        const server = await bluetoothDevice.gatt.connect();
+        const service = await server.getPrimaryService('00001234-0000-1000-8000-00805f9b34fb');
+        bluetoothCharacteristic = await service.getCharacteristic('00005678-0000-1000-8000-00805f9b34fb');
+        // Gửi chuỗi SSID:password
+        const wifiString = `${ssid}:${password}`;
+        await bluetoothCharacteristic.writeValue(new TextEncoder().encode(wifiString));
+        wifiModalStatus.textContent = 'Đã gửi thông tin WiFi, chờ ESP32 kết nối...';
+        // Lưu trạng thái đã cấu hình WiFi
+        localStorage.setItem('wifiConfigured', 'true');
+        // Theo dõi trạng thái Firebase
+        let checkCount = 0;
+        const checkInterval = setInterval(async () => {
+            const isConnected = await checkConnectionStatus();
+            if (isConnected) {
+                wifiModalStatus.textContent = 'Kết nối WiFi thành công!';
+                setTimeout(() => { wifiModal.style.display = 'none'; }, 1000);
+                clearInterval(checkInterval);
+            } else if (++checkCount > 15) {
+                wifiModalStatus.textContent = 'Kết nối thất bại. Vui lòng kiểm tra lại.';
+                clearInterval(checkInterval);
+            }
+        }, 2000);
+    } catch (error) {
+        wifiModalStatus.textContent = 'Lỗi: ' + error.message;
+    }
+});
+
+// Khi tải lại trang, nếu đã cấu hình WiFi thì ẩn nút Connect WiFi
+window.addEventListener('DOMContentLoaded', async () => {
+    if (localStorage.getItem('wifiConfigured') === 'true') {
+        await checkConnectionStatus();
+        if (isWifiConnected) {
+            connectWifiBtn.style.display = 'none';
+            wifiStatus.textContent = 'WiFi Connected';
+        } else {
+            localStorage.removeItem('wifiConfigured');
+            connectWifiBtn.style.display = 'block';
         }
     }
 });
