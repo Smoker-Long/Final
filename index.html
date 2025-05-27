@@ -18,17 +18,16 @@
         <p id="loginError" class="error-message"></p>
     </div>
 
-    <div class="wifi-config" id="wifiConfig" style="display: none;">
-        <h2>Cấu hình WiFi cho ESP32</h2>
-        <div id="bleStatus" class="status-message">Đang tìm kiếm thiết bị BLE...</div>
-        <input type="text" id="wifiSSID" placeholder="Tên WiFi (SSID)">
-        <input type="password" id="wifiPassword" placeholder="Mật khẩu WiFi">
-        <button id="sendWifiBtn" disabled>Gửi cấu hình WiFi</button>
-        <p id="wifiError" class="error-message"></p>
-    </div>
-
     <div class="control-panel" id="controlPanel" style="display: none;">
         <h1>Hệ thống điều khiển</h1>
+
+        <div class="wifi-section">
+            <button id="connectWifiBtn" class="wifi-button">
+                <span class="button-label">Connect WiFi</span>
+                <span class="button-state">Disconnected</span>
+            </button>
+            <div id="wifiStatus" class="wifi-status"></div>
+        </div>
 
         <div class="status-section">
             <div class="status-box temperature">
