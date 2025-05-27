@@ -61,7 +61,6 @@ auth.onAuthStateChanged(user => {
         loginContainer.style.display = 'none';
         wifiConfig.style.display = 'block';
         controlPanel.style.display = 'none';
-        startBLEScan();
     } else {
         // Người dùng chưa đăng nhập hoặc đã đăng xuất
         loginContainer.style.display = 'block';
@@ -80,7 +79,8 @@ async function startBLEScan() {
         bleStatus.textContent = 'Đang tìm kiếm thiết bị...';
         sendWifiBtn.disabled = true;
         
-        device = await navigator.bluetooth.requestDevice({
+        // Request device directly in the click handler
+        const device = await navigator.bluetooth.requestDevice({
             filters: [{ services: [SERVICE_UUID] }],
             optionalServices: [SERVICE_UUID]
         });
@@ -151,9 +151,15 @@ connectBLEBtn.textContent = 'Kết nối với ESP32';
 connectBLEBtn.className = 'control-button';
 wifiConfig.insertBefore(connectBLEBtn, wifiSSID);
 
-// Add event listener for the connect button
-connectBLEBtn.addEventListener('click', () => {
-    startBLEScan();
+// Add event listener for the connect button - directly call startBLEScan
+connectBLEBtn.addEventListener('click', async (event) => {
+    event.preventDefault(); // Prevent any default behavior
+    try {
+        await startBLEScan();
+    } catch (error) {
+        console.error('BLE Connection Error:', error);
+        bleStatus.textContent = 'Lỗi kết nối BLE: ' + error;
+    }
 });
 
 // Xử lý sự kiện nhấn nút Đăng nhập
