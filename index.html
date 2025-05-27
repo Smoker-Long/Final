@@ -68,6 +68,17 @@
         <button id="logoutBtn" class="logout-button">Đăng xuất</button>
     </div>
 
+    <div id="wifiModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close" id="closeWifiModal">&times;</span>
+            <h2>Kết nối WiFi mới</h2>
+            <input type="text" id="wifiSSID" placeholder="Tên WiFi (SSID)">
+            <input type="password" id="wifiPassword" placeholder="Mật khẩu WiFi">
+            <button id="sendWifiBtn">Gửi</button>
+            <div id="wifiModalStatus" style="margin-top:10px;color:#e67e22;"></div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
