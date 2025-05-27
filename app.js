@@ -41,10 +41,52 @@ let isAutoMode = false;
 let relay1Active = true;
 let fanManuallyOn = false;
 let isWifiConnected = false;
+let isBLEConnected = false;
 
 // --- BLE Connection Handling ---
 let bluetoothDevice = null;
 let bluetoothCharacteristic = null;
+
+// Kiểm tra kết nối Firebase
+function checkFirebaseConnection() {
+    return new Promise((resolve) => {
+        const connectedRef = database.ref(".info/connected");
+        connectedRef.on("value", (snap) => {
+            if (snap.val() === true) {
+                console.log("Firebase connected");
+                resolve(true);
+            } else {
+                console.log("Firebase disconnected");
+                resolve(false);
+            }
+        });
+    });
+}
+
+// Kiểm tra trạng thái kết nối
+async function checkConnectionStatus() {
+    try {
+        const isConnected = await checkFirebaseConnection();
+        if (isConnected) {
+            // Firebase đã kết nối, không cần BLE
+            isWifiConnected = true;
+            isBLEConnected = false;
+            connectWifiBtn.style.display = 'none'; // Ẩn nút Connect WiFi
+            wifiStatus.textContent = 'WiFi Connected';
+            return true;
+        } else {
+            // Firebase không kết nối, hiển thị nút Connect WiFi
+            isWifiConnected = false;
+            isBLEConnected = false;
+            connectWifiBtn.style.display = 'block';
+            wifiStatus.textContent = 'WiFi Disconnected';
+            return false;
+        }
+    } catch (error) {
+        console.error('Error checking connection:', error);
+        return false;
+    }
+}
 
 async function connectToDevice() {
     try {
@@ -52,22 +94,29 @@ async function connectToDevice() {
         bluetoothDevice = await navigator.bluetooth.requestDevice({
             filters: [
                 {
-                    services: ['00001234-0000-1000-8000-00805f9b34fb']
+                    namePrefix: 'ESP_WIFI_CONFIG'
                 }
-            ]
+            ],
+            optionalServices: ['00001234-0000-1000-8000-00805f9b34fb']
         });
+
+        console.log('Device selected:', bluetoothDevice.name);
+        wifiStatus.textContent = 'Connecting to ' + bluetoothDevice.name + '...';
 
         // Connect to the device
         const server = await bluetoothDevice.gatt.connect();
+        console.log('Connected to GATT server');
         
         // Get the service
         const service = await server.getPrimaryService('00001234-0000-1000-8000-00805f9b34fb');
+        console.log('Service found');
         
         // Get the characteristic
         bluetoothCharacteristic = await service.getCharacteristic('00005678-0000-1000-8000-00805f9b34fb');
+        console.log('Characteristic found');
 
         // Update UI
-        isWifiConnected = true;
+        isBLEConnected = true;
         connectWifiBtn.classList.add('connected');
         connectWifiBtn.querySelector('.button-state').textContent = 'Connected';
         wifiStatus.textContent = 'Connected to: ' + bluetoothDevice.name;
@@ -77,23 +126,47 @@ async function connectToDevice() {
 
     } catch (error) {
         console.error('Error connecting to device:', error);
-        wifiStatus.textContent = 'Connection failed: ' + error.message;
+        if (error.name === 'NotFoundError') {
+            wifiStatus.textContent = 'No device selected. Please try again.';
+        } else if (error.name === 'NetworkError') {
+            wifiStatus.textContent = 'Connection failed. Device may be out of range.';
+        } else {
+            wifiStatus.textContent = 'Connection failed: ' + error.message;
+        }
+        // Reset connection state
+        isBLEConnected = false;
+        connectWifiBtn.classList.remove('connected');
+        connectWifiBtn.querySelector('.button-state').textContent = 'Disconnected';
+        bluetoothDevice = null;
+        bluetoothCharacteristic = null;
     }
 }
 
 function onDisconnected() {
-    isWifiConnected = false;
+    console.log('Device disconnected');
+    isBLEConnected = false;
     connectWifiBtn.classList.remove('connected');
     connectWifiBtn.querySelector('.button-state').textContent = 'Disconnected';
     wifiStatus.textContent = 'Device disconnected';
     bluetoothDevice = null;
     bluetoothCharacteristic = null;
+    
+    // Kiểm tra lại kết nối Firebase
+    checkConnectionStatus();
 }
 
 // Add click handler for WiFi connection button
 connectWifiBtn.addEventListener('click', async () => {
-    if (!isWifiConnected) {
-        await connectToDevice();
+    if (!isBLEConnected) {
+        try {
+            if (!navigator.bluetooth) {
+                throw new Error('Web Bluetooth API is not available in your browser. Please use Chrome, Edge, or Opera.');
+            }
+            await connectToDevice();
+        } catch (error) {
+            console.error('Error:', error);
+            wifiStatus.textContent = error.message;
+        }
     } else {
         if (bluetoothDevice && bluetoothDevice.gatt.connected) {
             bluetoothDevice.gatt.disconnect();
@@ -102,11 +175,16 @@ connectWifiBtn.addEventListener('click', async () => {
 });
 
 // --- Firebase Authentication ---
-auth.onAuthStateChanged(user => {
+auth.onAuthStateChanged(async (user) => {
     if (user) {
         loginContainer.style.display = 'none';
         controlPanel.style.display = 'block';
-        startFirebaseListeners();
+        
+        // Kiểm tra kết nối khi đăng nhập thành công
+        const isConnected = await checkConnectionStatus();
+        if (isConnected) {
+            startFirebaseListeners();
+        }
     } else {
         loginContainer.style.display = 'block';
         controlPanel.style.display = 'none';
@@ -116,6 +194,13 @@ auth.onAuthStateChanged(user => {
         loginError.textContent = '';
     }
 });
+
+// Kiểm tra kết nối định kỳ
+setInterval(async () => {
+    if (auth.currentUser) {
+        await checkConnectionStatus();
+    }
+}, 5000); // Kiểm tra mỗi 5 giây
 
 loginBtn.addEventListener('click', () => {
     const email = loginEmail.value;
