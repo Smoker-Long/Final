@@ -13,7 +13,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const database = firebase.database();
 const dbRef = database.ref('esp32/status');   // Đường dẫn để đọc trạng thái từ ESP32
-const cmdRef = database.ref('esp32/commands'); // Đường dẫn để gửi lệnh đến ESP32
+const cmdRef = database.ref('esp32/status');  // Đường dẫn để gửi lệnh đến ESP32
 
 // --- Lấy các phần tử DOM ---
 const loginContainer = document.getElementById('loginContainer');
@@ -241,9 +241,10 @@ function startFirebaseListeners() {
     statusListener = dbRef.on('value', snapshot => {
         const data = snapshot.val();
         if (data) {
+            console.log("Received data from Firebase:", data);
             updateUI(data);
         } else {
-            console.log("Không có dữ liệu hoặc dữ liệu rỗng.");
+            console.log("No data received from Firebase");
             currentTemperatureSpan.textContent = '--°C';
             systemStatusSpan.textContent = 'Không có dữ liệu';
             modeStatusSpan.textContent = 'Không có dữ liệu';
@@ -267,6 +268,7 @@ function stopFirebaseListeners() {
 
 // --- UI Update Functions ---
 function updateUI(data) {
+    console.log("Updating UI with data:", data);
     toggleSystemBtn.disabled = false;
     toggleModeBtn.disabled = false;
 
@@ -350,6 +352,7 @@ toggleFanBtn.addEventListener('click', () => {
     if (!toggleFanBtn.disabled) {
         fanManuallyOn = !fanManuallyOn;
         cmdRef.update({ fanState: fanManuallyOn })
+            .then(() => console.log("Fan state updated successfully"))
             .catch(error => console.error("Lỗi cập nhật trạng thái Fan lên Firebase:", error));
     }
 });
@@ -357,7 +360,11 @@ toggleFanBtn.addEventListener('click', () => {
 toggleRelayBtn.addEventListener('click', () => {
     if (!toggleRelayBtn.disabled) {
         relay1Active = !relay1Active;
-        cmdRef.update({ heater1State: relay1Active })
+        cmdRef.update({ 
+            heater1State: relay1Active,
+            heater2State: !relay1Active
+        })
+            .then(() => console.log("Heater state updated successfully"))
             .catch(error => console.error("Lỗi cập nhật trạng thái Relay lên Firebase:", error));
     }
 });
@@ -365,11 +372,13 @@ toggleRelayBtn.addEventListener('click', () => {
 toggleSystemBtn.addEventListener('click', () => {
     isSystemOn = !isSystemOn;
     cmdRef.update({ systemLocked: !isSystemOn })
+        .then(() => console.log("System state updated successfully"))
         .catch(error => console.error("Lỗi cập nhật trạng thái Hệ thống lên Firebase:", error));
 });
 
 toggleModeBtn.addEventListener('click', () => {
     isAutoMode = !isAutoMode;
     cmdRef.update({ manualMode: !isAutoMode })
+        .then(() => console.log("Mode updated successfully"))
         .catch(error => console.error("Lỗi cập nhật Chế độ lên Firebase:", error));
 });
