@@ -38,7 +38,7 @@ const toggleModeBtn = document.getElementById('toggleModeBtn');
 // --- Biến trạng thái UI ---
 let isSystemOn = false;
 let isAutoMode = false;
-let relay1Active = true; // Mặc định ban đầu là Sưởi 1 (cho phù hợp với code ESP32)
+let relay1Active = true;
 let fanManuallyOn = false;
 let isWifiConnected = false;
 
@@ -102,26 +102,21 @@ connectWifiBtn.addEventListener('click', async () => {
 });
 
 // --- Firebase Authentication ---
-// Lắng nghe trạng thái xác thực để hiển thị giao diện phù hợp
 auth.onAuthStateChanged(user => {
     if (user) {
-        // Người dùng đã đăng nhập
         loginContainer.style.display = 'none';
         controlPanel.style.display = 'block';
-        startFirebaseListeners(); // Bắt đầu lắng nghe dữ liệu từ Firebase DB
+        startFirebaseListeners();
     } else {
-        // Người dùng chưa đăng nhập hoặc đã đăng xuất
         loginContainer.style.display = 'block';
         controlPanel.style.display = 'none';
-        stopFirebaseListeners(); // Dừng lắng nghe dữ liệu từ Firebase DB
-        // Đảm bảo xóa trường đăng nhập khi đăng xuất
+        stopFirebaseListeners();
         loginEmail.value = '';
         loginPassword.value = '';
-        loginError.textContent = ''; // Xóa thông báo lỗi cũ
+        loginError.textContent = '';
     }
 });
 
-// Xử lý sự kiện nhấn nút Đăng nhập
 loginBtn.addEventListener('click', () => {
     const email = loginEmail.value;
     const password = loginPassword.value;
@@ -133,7 +128,7 @@ loginBtn.addEventListener('click', () => {
 
     auth.signInWithEmailAndPassword(email, password)
         .then(() => {
-            loginError.textContent = ''; // Xóa lỗi nếu đăng nhập thành công
+            loginError.textContent = '';
             console.log('Đăng nhập thành công!');
         })
         .catch(error => {
@@ -142,7 +137,6 @@ loginBtn.addEventListener('click', () => {
         });
 });
 
-// Xử lý sự kiện nhấn nút Đăng xuất
 logoutBtn.addEventListener('click', () => {
     auth.signOut()
         .then(() => {
@@ -153,25 +147,21 @@ logoutBtn.addEventListener('click', () => {
         });
 });
 
-// --- Lắng nghe dữ liệu từ Firebase Realtime Database ---
+// --- Firebase Realtime Database Listeners ---
 let statusListener = null;
 
-// Hàm để bắt đầu lắng nghe Firebase Realtime Database
 function startFirebaseListeners() {
-    // Đảm bảo chỉ tạo một listener duy nhất
     if (statusListener) return;
 
     statusListener = dbRef.on('value', snapshot => {
         const data = snapshot.val();
-        if (data && data.systemState) {
-            updateUI(data.systemState, data.buttonState, data.relayStatus);
+        if (data) {
+            updateUI(data);
         } else {
-            console.log("Không có dữ liệu systemState hoặc dữ liệu rỗng.");
-            // Cập nhật UI về trạng thái mặc định hoặc "đang tải" nếu không có dữ liệu
+            console.log("Không có dữ liệu hoặc dữ liệu rỗng.");
             currentTemperatureSpan.textContent = '--°C';
             systemStatusSpan.textContent = 'Không có dữ liệu';
             modeStatusSpan.textContent = 'Không có dữ liệu';
-            // Vô hiệu hóa tất cả các nút nếu không có dữ liệu trạng thái
             toggleFanBtn.disabled = true;
             toggleRelayBtn.disabled = true;
             toggleSystemBtn.disabled = true;
@@ -182,7 +172,6 @@ function startFirebaseListeners() {
     });
 }
 
-// Hàm để dừng lắng nghe Firebase Realtime Database
 function stopFirebaseListeners() {
     if (statusListener) {
         dbRef.off('value', statusListener);
@@ -191,21 +180,18 @@ function stopFirebaseListeners() {
     }
 }
 
-// --- Cập nhật giao diện người dùng (UI) dựa trên dữ liệu Firebase ---
-function updateUI(systemState, buttonState, relayStatus) {
-    // Đảm bảo các nút được kích hoạt trước khi cập nhật trạng thái disabled dựa trên logic
+// --- UI Update Functions ---
+function updateUI(data) {
     toggleSystemBtn.disabled = false;
     toggleModeBtn.disabled = false;
 
-    // Cập nhật nhiệt độ
-    if (systemState.temperature !== -127.0 && systemState.temperature !== null) {
-        currentTemperatureSpan.textContent = `${systemState.temperature.toFixed(2)}°C`;
+    if (data.temperature !== -127.0 && data.temperature !== null) {
+        currentTemperatureSpan.textContent = `${data.temperature.toFixed(2)}°C`;
     } else {
         currentTemperatureSpan.textContent = 'Đang đọc...';
     }
 
-    // Cập nhật trạng thái hệ thống ON/OFF
-    isSystemOn = systemState.on;
+    isSystemOn = data.systemLocked === false;
     if (isSystemOn) {
         toggleSystemBtn.classList.remove('system-off');
         toggleSystemBtn.classList.add('system-on');
@@ -218,23 +204,15 @@ function updateUI(systemState, buttonState, relayStatus) {
         systemStatusSpan.textContent = 'Đã tắt';
     }
 
-    // Cập nhật chế độ Auto/Manual
-    // Lấy trạng thái isAutoMode từ Firebase (systemState.isAutoMode)
-    isAutoMode = systemState.isAutoMode; 
+    isAutoMode = !data.manualMode;
     updateModeButton(isAutoMode);
 
-    // Cập nhật trạng thái Fan
-    // Lấy trạng thái fanManual từ Firebase (systemState.fanManual)
-    fanManuallyOn = systemState.fanManual; 
+    fanManuallyOn = data.fanState;
     updateFanButton(fanManuallyOn);
     
-    // Cập nhật trạng thái Sưởi (Relay)
-    // Lấy trạng thái relay1Active từ Firebase (systemState.relay1Active)
-    relay1Active = systemState.relay1Active; 
+    relay1Active = data.heater1State;
     updateRelayButton(relay1Active);
 
-    // Xử lý trạng thái disabled của các nút điều khiển (Fan, Sưởi)
-    // Các nút này chỉ có thể nhấn khi hệ thống ON VÀ ở chế độ Manual
     if (isAutoMode || !isSystemOn) {
         toggleFanBtn.disabled = true;
         toggleRelayBtn.disabled = true;
@@ -244,7 +222,6 @@ function updateUI(systemState, buttonState, relayStatus) {
     }
 }
 
-// Cập nhật giao diện nút Fan
 function updateFanButton(isOn) {
     if (isOn) {
         toggleFanBtn.classList.remove('off');
@@ -257,7 +234,6 @@ function updateFanButton(isOn) {
     }
 }
 
-// Cập nhật giao diện nút Sưởi
 function updateRelayButton(isRelay1Active) {
     if (isRelay1Active) {
         toggleRelayBtn.classList.remove('relay2');
@@ -270,7 +246,6 @@ function updateRelayButton(isRelay1Active) {
     }
 }
 
-// Cập nhật giao diện nút Chế độ (Auto/Manual)
 function updateModeButton(isAuto) {
     if (isAuto) {
         toggleModeBtn.classList.remove('mode-manual');
@@ -285,40 +260,31 @@ function updateModeButton(isAuto) {
     }
 }
 
-// --- Xử lý sự kiện nhấn các nút điều khiển trên Web ---
-
-// Nút Fan
+// --- Control Button Event Handlers ---
 toggleFanBtn.addEventListener('click', () => {
-    // Chỉ gửi lệnh khi nút không bị disabled
     if (!toggleFanBtn.disabled) {
         fanManuallyOn = !fanManuallyOn;
-        cmdRef.update({ buttonFan: fanManuallyOn })
+        cmdRef.update({ fanState: fanManuallyOn })
             .catch(error => console.error("Lỗi cập nhật trạng thái Fan lên Firebase:", error));
     }
 });
 
-// Nút Sưởi (Relay)
 toggleRelayBtn.addEventListener('click', () => {
-    // Chỉ gửi lệnh khi nút không bị disabled
     if (!toggleRelayBtn.disabled) {
         relay1Active = !relay1Active;
-        cmdRef.update({ buttonRelay: relay1Active })
+        cmdRef.update({ heater1State: relay1Active })
             .catch(error => console.error("Lỗi cập nhật trạng thái Relay lên Firebase:", error));
     }
 });
 
-// Nút Hệ thống ON/OFF
 toggleSystemBtn.addEventListener('click', () => {
     isSystemOn = !isSystemOn;
-    // Tương ứng với biến `buttonReset` trong code ESP32 của bạn
-    cmdRef.update({ buttonReset: isSystemOn })
+    cmdRef.update({ systemLocked: !isSystemOn })
         .catch(error => console.error("Lỗi cập nhật trạng thái Hệ thống lên Firebase:", error));
 });
 
-// Nút Chế độ Auto/Manual
 toggleModeBtn.addEventListener('click', () => {
     isAutoMode = !isAutoMode;
-    // Tương ứng với biến `buttonMode` trong code ESP32 của bạn
-    cmdRef.update({ buttonMode: isAutoMode })
+    cmdRef.update({ manualMode: !isAutoMode })
         .catch(error => console.error("Lỗi cập nhật Chế độ lên Firebase:", error));
 });
