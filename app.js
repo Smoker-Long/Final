@@ -245,25 +245,39 @@ window.addEventListener('DOMContentLoaded', async () => {
 // --- Firebase Authentication ---
 auth.onAuthStateChanged(async (user) => {
     if (user) {
+        console.log('User logged in:', user.uid);
         loginContainer.style.display = 'none';
         controlPanel.style.display = 'block';
         
-        // Kiểm tra kết nối khi đăng nhập thành công
-        const isConnected = await checkConnectionStatus();
-        if (isConnected) {
-            startFirebaseListeners();
-        }
+        // Start Firebase listeners immediately if not already started
+        startFirebaseListeners();
+        
+        // Check and update connection status display
+        await checkConnectionStatus();
+
     } else {
+        console.log('User logged out');
         loginContainer.style.display = 'block';
         controlPanel.style.display = 'none';
         stopFirebaseListeners();
         loginEmail.value = '';
         loginPassword.value = '';
         loginError.textContent = '';
+        
+        // Update UI to show disconnected state
+        currentTemperatureSpan.textContent = '--°C';
+        systemStatusSpan.textContent = 'Đăng xuất';
+        modeStatusSpan.textContent = 'Đăng xuất';
+        toggleFanBtn.disabled = true;
+        toggleRelayBtn.disabled = true;
+        toggleSystemBtn.disabled = true;
+        toggleModeBtn.disabled = true;
+        wifiStatus.textContent = 'Disconnected';
+        connectWifiBtn.style.display = 'block'; // Show Connect WiFi button
     }
 });
 
-// Kiểm tra kết nối định kỳ
+// Kiểm tra kết nối định kỳ - Keep this for ongoing monitoring
 setInterval(async () => {
     if (auth.currentUser) {
         await checkConnectionStatus();
@@ -304,25 +318,46 @@ logoutBtn.addEventListener('click', () => {
 let statusListener = null;
 
 function startFirebaseListeners() {
-    if (statusListener) return;
+    if (statusListener) {
+        console.log("Firebase listeners already started.");
+        return;
+    }
+    console.log("Starting Firebase listeners...");
 
+    // Listener for esp32/status changes
     statusListener = dbRef.on('value', snapshot => {
         const data = snapshot.val();
         if (data) {
             console.log("Received data from Firebase:", data);
             updateUI(data);
         } else {
-            console.log("No data received from Firebase");
-            currentTemperatureSpan.textContent = '--°C';
-            systemStatusSpan.textContent = 'Không có dữ liệu';
-            modeStatusSpan.textContent = 'Không có dữ liệu';
-            toggleFanBtn.disabled = true;
-            toggleRelayBtn.disabled = true;
-            toggleSystemBtn.disabled = true;
-            toggleModeBtn.disabled = true;
+            console.log("No data received from Firebase at", dbRef.toString());
+            // It's possible the node is empty temporarily or deleted
+            // You might want to reset UI elements here if data is expected to be always present
         }
     }, error => {
-        console.error("Lỗi đọc Firebase Realtime Database:", error);
+        console.error("Lỗi đọc Firebase Realtime Database tại /esp32/status:", error);
+        // Depending on the error, you might want to stop listeners or try reconnecting
+    });
+    
+    // Listener for .info/connected
+    const connectedRef = database.ref(".info/connected");
+    connectedRef.on("value", (snap) => {
+        if (snap.val() === true) {
+            console.log("Firebase .info/connected: CONNECTED");
+            isWifiConnected = true;
+            isBLEConnected = false; // Assuming WiFi connection means no BLE needed for config
+            wifiStatus.textContent = 'WiFi Connected';
+             connectWifiBtn.style.display = 'none'; // Hide Connect WiFi button when connected via Firebase
+        } else {
+            console.log("Firebase .info/connected: DISCONNECTED");
+            isWifiConnected = false;
+             wifiStatus.textContent = 'WiFi Disconnected';
+             // Only show Connect WiFi if not trying BLE already
+             if (!isBLEConnected) {
+               connectWifiBtn.style.display = 'block';
+             }
+        }
     });
 }
 
@@ -330,8 +365,12 @@ function stopFirebaseListeners() {
     if (statusListener) {
         dbRef.off('value', statusListener);
         statusListener = null;
-        console.log("Đã dừng lắng nghe Firebase stream.");
+        console.log("Đã dừng lắng nghe Firebase stream trên /esp32/status.");
     }
+     // Also stop the .info/connected listener when logging out
+    const connectedRef = database.ref(".info/connected");
+    connectedRef.off('value');
+    console.log("Đã dừng lắng nghe Firebase stream trên .info/connected.");
 }
 
 // --- UI Update Functions ---
