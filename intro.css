@@ -1,0 +1,202 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #3498db; /* Màu nền xanh dương */
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    color: #333;
+    padding: 20px; /* Thêm padding để nội dung không chạm mép màn hình nhỏ */
+    box-sizing: border-box; /* Đảm bảo padding không làm tăng kích thước container */
+}
+
+.intro-container {
+    background-color: #ffffff;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 600px; /* Giới hạn chiều rộng tối đa */
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px; /* Khoảng cách giữa các phần */
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* Khoảng cách giữa logo và chữ */
+    margin-bottom: 20px;
+    flex-wrap: wrap; /* Cho phép xuống dòng trên màn hình nhỏ */
+    justify-content: center;
+}
+
+.logo {
+    height: 80px; /* Điều chỉnh kích thước logo */
+    width: auto;
+}
+
+.header-text {
+    text-align: left;
+}
+
+.university-name {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.faculty-name {
+    font-size: 22px;
+    font-weight: bold;
+    color: #2c3e50;
+    border-bottom: 2px solid #2c3e50; /* Gạch chân */
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+}
+
+.english-name {
+    font-size: 14px;
+    color: #7f8c8d;
+}
+
+.title-section {
+    margin-bottom: 20px;
+}
+
+.project-title-viet {
+    font-size: 28px;
+    font-weight: bold;
+    color: #3498db; /* Màu xanh dương */
+    margin-bottom: 10px;
+}
+
+.system-title-viet {
+    font-size: 24px;
+    font-weight: bold;
+    color: #e74c3c; /* Màu đỏ */
+}
+
+.info-section {
+    display: flex;
+    justify-content: center; /* Căn giữa các cột thông tin sinh viên */
+    gap: 30px; /* Khoảng cách giữa hai cột thông tin sinh viên */
+    margin-bottom: 20px;
+    flex-wrap: wrap; /* Cho phép xuống dòng trên màn hình nhỏ */
+}
+
+.student-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    flex: 1; /* Cho phép các cột co giãn */
+    min-width: 200px; /* Chiều rộng tối thiểu cho mỗi cột */
+}
+
+.student-image {
+    width: 120px; /* Kích thước ảnh sinh viên */
+    height: 120px;
+    border-radius: 50%; /* Ảnh tròn */
+    object-fit: cover; /* Đảm bảo ảnh không bị méo */
+    border: 4px solid #3498db; /* Viền xanh cho ảnh */
+    margin-bottom: 10px;
+}
+
+.name {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.mssv, .contact {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 3px;
+}
+
+.advisor-section {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 30px;
+}
+
+.next-button {
+    background-color: #3498db;
+    color: white;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+    width: auto; /* Chiều rộng tự động */
+    min-width: 150px; /* Chiều rộng tối thiểu */
+}
+
+.next-button:hover {
+    background-color: #2980b9;
+}
+
+.next-button:active {
+    transform: translateY(2px);
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .intro-container {
+        padding: 20px;
+    }
+
+    .logo {
+        height: 60px;
+    }
+
+    .university-name {
+        font-size: 16px;
+    }
+
+    .faculty-name {
+        font-size: 18px;
+    }
+
+    .english-name {
+        font-size: 12px;
+    }
+
+    .project-title-viet {
+        font-size: 22px;
+    }
+
+    .system-title-viet {
+        font-size: 18px;
+    }
+
+    .student-image {
+        width: 100px;
+        height: 100px;
+    }
+
+    .name {
+        font-size: 16px;
+    }
+
+    .mssv, .contact {
+        font-size: 13px;
+    }
+
+    .advisor-section {
+        font-size: 16px;
+    }
+
+    .next-button {
+        font-size: 16px;
+        padding: 10px 25px;
+    }
+}
