@@ -143,6 +143,7 @@ body {
 /* Heater */
 .control-button#toggleRelayBtn.relay1 { background-color: #f1c40f; /* Vàng (Sưởi 1) */ }
 .control-button#toggleRelayBtn.relay2 { background-color: #2ecc71; /* Xanh lá cây (Sưởi 2) */ }
+.control-button#toggleRelayBtn.off { background-color: #95a5a6; /* Xám (OFF) */ }
 
 /* System ON/OFF */
 .control-button#toggleSystemBtn.system-on { background-color: #f1c40f; /* Vàng (ON) */ }
