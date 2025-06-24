@@ -1,6 +1,6 @@
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #e0e0e0;
+    background-color: #3498db;
     margin: 0;
     display: flex;
     justify-content: center;
@@ -143,7 +143,6 @@ body {
 /* Heater */
 .control-button#toggleRelayBtn.relay1 { background-color: #f1c40f; /* Vàng (Sưởi 1) */ }
 .control-button#toggleRelayBtn.relay2 { background-color: #2ecc71; /* Xanh lá cây (Sưởi 2) */ }
-.control-button#toggleRelayBtn.off { background-color: #95a5a6; /* Xám (OFF) */ }
 
 /* System ON/OFF */
 .control-button#toggleSystemBtn.system-on { background-color: #f1c40f; /* Vàng (ON) */ }
@@ -173,4 +172,122 @@ body {
     .button-grid {
         grid-template-columns: 1fr; /* Stack buttons on small screens */
     }
+}
+
+/* WiFi Connection Styles */
+.wifi-section {
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.wifi-button {
+    background-color: #3498db;
+    color: white;
+    padding: 15px 30px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background-color 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 auto;
+    min-width: 200px;
+}
+
+.wifi-button:hover {
+    background-color: #2980b9;
+}
+
+.wifi-button.connected {
+    background-color: #2ecc71;
+}
+
+.wifi-button.connected:hover {
+    background-color: #27ae60;
+}
+
+.wifi-status {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #7f8c8d;
+}
+
+/* Modal WiFi */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.4);
+}
+.modal-content {
+  background-color: #fff;
+  margin: 10% auto;
+  padding: 30px 20px 20px 20px;
+  border: 1px solid #888;
+  width: 90%;
+  max-width: 350px;
+  border-radius: 10px;
+  text-align: center;
+  position: relative;
+}
+.close {
+  color: #aaa;
+  position: absolute;
+  right: 20px;
+  top: 10px;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.close:hover {
+  color: #e74c3c;
+}
+#wifiModal input {
+  width: 90%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+}
+#sendWifiBtn {
+  background-color: #3498db;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+  width: 100%;
+}
+#sendWifiBtn:hover {
+  background-color: #2980b9;
+}
+#wifiModalStatus {
+  font-size: 14px;
+  color: #e67e22;
+}
+
+.wifi-change-button {
+  margin-top: 10px;
+  background-color: #f39c12;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+  width: 100%;
+}
+.wifi-change-button:hover {
+  background-color: #e67e22;
 }
