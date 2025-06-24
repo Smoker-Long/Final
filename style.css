@@ -138,7 +138,7 @@ body {
 
 /* Fan */
 .control-button#toggleFanBtn.on { background-color: #2ecc71; /* Xanh lá cây */ }
-.control-button#toggleFanBtn.off { background-color: #f1c40f; /* Vàng */ }
+.control-button#toggleFanBtn.off { background-color: #95a5a6; /* Vàng */ }
 
 /* Heater */
 .control-button#toggleRelayBtn.relay1 { background-color: #f1c40f; /* Vàng (Sưởi 1) */ }
