@@ -167,10 +167,17 @@ function updateUI(systemState, buttonState, relayStatus) {
     updateFanButton(fanManuallyOn);
     
     // Cập nhật trạng thái Sưởi (Relay)
-    // Lấy trạng thái relay1Active và heater2State từ Firebase
-    relay1Active = systemState.relay1Active;
-    const heater2State = systemState.heater2State;
-    updateRelayButton(relay1Active, heater2State);
+    // Khi hệ thống OFF, cả hai sưởi đều phải OFF
+    if (!isSystemOn) {
+        relay1Active = false;
+        const heater2State = false;
+        updateRelayButton(relay1Active, heater2State);
+    } else {
+        // Lấy trạng thái relay1Active và heater2State từ Firebase khi hệ thống ON
+        relay1Active = systemState.relay1Active;
+        const heater2State = systemState.heater2State;
+        updateRelayButton(relay1Active, heater2State);
+    }
 
     // Xử lý trạng thái disabled của các nút điều khiển (Fan, Sưởi)
     // Các nút này chỉ có thể nhấn khi hệ thống ON VÀ ở chế độ Manual
